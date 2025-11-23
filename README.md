@@ -1,6 +1,143 @@
-# AI Nexus
+# 🤖 AI Nexus
 
-A powerful application that queries multiple LLMs (ChatGPT, Claude, Gemini, Perplexity) and synthesizes their answers using AI models. **No API keys required** - works completely free using web access!
+**The Ultimate AI Swarm Intelligence System**
+
+AI Nexus is a powerful, distributed AI platform that aggregates intelligence from multiple top-tier LLMs (ChatGPT, Claude, Gemini, Perplexity) and synthesizes them into a single, expert answer using your local AI.
+
+**✨ Key Features:**
+- **Free Web Access**: Uses [g4f](https://github.com/xtekky/gpt4free) to query top models without API keys.
+- **🧠 Knowledge Distillation**: Your local AI "learns" from online experts via a RAG memory system.
+- **🌐 Distributed Computing**: Connect multiple computers to form a unified local AI fleet.
+- **📱 Mobile App**: Chat with your Swarm from Android or iOS.
+- **Privacy First**: Runs locally on your machine.
+
+---
+
+## 🚀 Getting Started
+
+### 1. Prerequisites
+- **Python 3.10+**: [Download Here](https://www.python.org/downloads/)
+- **Node.js** (for Mobile App): [Download Here](https://nodejs.org/)
+- **Ollama** (Optional, for local AI): [Download Here](https://ollama.com/)
+
+### 2. Installation
+
+Clone the repository and set up the environment:
+
+```bash
+# 1. Clone the repo
+git clone https://github.com/jimmymannekkattu/Multi-LLM-Aggregator.git
+cd Multi-LLM-Aggregator
+
+# 2. Create a virtual environment
+python3 -m venv venv
+source venv/bin/activate  # Windows: venv\Scripts\activate
+
+# 3. Install dependencies
+pip install -r requirements.txt
+```
+
+### 3. Running the Desktop App
+
+This is the main control center.
+
+```bash
+streamlit run app.py
+```
+- **Access**: Open `http://localhost:8501` in your browser.
+- **Usage**:
+    - Select models from the sidebar.
+    - Type your question.
+    - Watch as multiple AIs answer and your local model synthesizes the result!
+
+---
+
+## 📱 Mobile App Setup (Android & iOS)
+
+Access your AI Swarm from your phone!
+
+### Step 1: Start the Backend API
+The mobile app needs a server to talk to. Run this in a **new terminal** (keep the Streamlit app running if you want both):
+
+```bash
+source venv/bin/activate
+uvicorn api:app --host 0.0.0.0 --port 8000 --reload
+```
+*You should see: `Uvicorn running on http://0.0.0.0:8000`*
+
+### Step 2: Start the Mobile Client
+1.  Open a **third terminal**.
+2.  Navigate to the mobile folder:
+    ```bash
+    cd mobile
+    ```
+3.  Install dependencies (first time only):
+    ```bash
+    npm install
+    ```
+4.  Start the app:
+    ```bash
+    npx expo start
+    ```
+5.  **Scan the QR Code**:
+    - Install **Expo Go** from the App Store (iOS) or Play Store (Android).
+    - Scan the QR code shown in the terminal.
+
+### Step 3: Connect
+1.  In the mobile app, go to the **Settings** tab.
+2.  Enter your PC's Local IP Address:
+    - Windows: Run `ipconfig` (look for IPv4 Address).
+    - Mac/Linux: Run `ifconfig` (look for inet 192.168...).
+    - Enter: `http://YOUR_IP_ADDRESS:8000` (e.g., `http://192.168.1.15:8000`).
+3.  Go to **Chat** and start asking questions!
+
+---
+
+## 🧠 Knowledge Distillation (Memory)
+
+AI Nexus makes your local models smarter over time.
+
+1.  **Enable Learning**: In the Sidebar > Knowledge Base, toggle "Enable Learning".
+2.  **Teach**: Ask questions with Online Models (ChatGPT, Claude) enabled.
+3.  **Learn**: The system saves the high-quality answers to a local vector database.
+4.  **Recall**: When you ask a similar question later (even offline!), the system retrieves this memory to help your local model answer correctly.
+5.  **Export**: Click "Export Training Data" to get a `.jsonl` file for fine-tuning.
+
+---
+
+## 🌐 Distributed Network Nodes
+
+Combine the power of multiple computers!
+
+1.  **Prepare Nodes**: Install Ollama on other computers and run `ollama serve`.
+    - *Note: You may need to set `OLLAMA_HOST=0.0.0.0` on those machines to allow external connections.*
+2.  **Add Node**:
+    - In the Desktop App Sidebar > Offline & Network > Manage Network Nodes.
+    - Enter Name (e.g., "Gaming PC") and URL (e.g., `http://192.168.1.20:11434`).
+3.  **Use**: You can now select models running on those remote machines!
+
+---
+
+## 📁 Project Structure
+
+```
+AI-Nexus/
+├── app.py                  # Desktop App (Streamlit)
+├── api.py                  # Mobile Backend (FastAPI)
+├── mobile/                 # Mobile App (React Native)
+├── agents/                 # Core Logic
+│   └── memory.py           # RAG/Memory System
+├── llm_providers.py        # Online Model Integrations
+├── offline_model.py        # Synthesis Logic
+├── requirements.txt        # Python Dependencies
+└── README.md              # This Guide
+```
+
+## 📄 License
+MIT License. Free to use and modify.
+
+## ⚠️ Disclaimer
+This project uses `g4f` for free web access. Availability of free models depends on external services and may vary. For production stability, add your own API keys in the Provider Manager.
 
 ## ✨ Features
 
@@ -148,9 +285,31 @@ See [agents.md](agents.md) for detailed documentation on:
 - Fallback mechanisms
 - Customization
 
-## 🤝 Contributing
+## 📱 Mobile App (Android & iOS)
 
-Contributions are welcome! Please feel free to submit a Pull Request.
+AI Nexus includes a React Native mobile app that connects to your PC.
+
+### 1. Start the Backend API (on PC)
+Run this alongside the Streamlit app:
+```bash
+uvicorn api:app --host 0.0.0.0 --port 8000
+```
+
+### 2. Run the Mobile App
+1.  Navigate to the mobile folder: `cd mobile`
+2.  Install dependencies: `npm install`
+3.  Start Expo: `npx expo start`
+4.  Scan the QR code with the **Expo Go** app on your phone.
+
+### 3. Configure App
+- In the app, go to **Settings**.
+- Enter your PC's IP address (e.g., `http://192.168.1.5:8000`).
+- Select your models and start chatting!
+
+### Features
+- **💬 Chat**: Full access to the Swarm.
+- **📜 History**: View all past queries and answers (synced with PC).
+- **⚙️ Settings**: Toggle Online/Offline models remotely.
 
 ## 📄 License
 

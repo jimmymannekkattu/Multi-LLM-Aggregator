@@ -9,29 +9,35 @@ The AI Nexus uses a modular architecture with intelligent fallback systems to en
 ## Architecture Diagram
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                       User Interface                         │
-│                     (Streamlit UI)                          │
-└───────────┬───────────────────────────────────┬─────────────┘
-            │                                   │
-            ▼                                   ▼
+┌───────────────────────────┐      ┌────────────────────────────┐
+│      Mobile App           │      │      Desktop App           │
+│    (React Native)         │      │      (Streamlit)           │
+└─────────────┬─────────────┘      └─────────────┬──────────────┘
+              │                                  │
+              ▼                                  ▼
+┌───────────────────────────────────────────────────────────────┐
+│                       API Layer                               │
+│             (api.py - FastAPI / app.py - Streamlit)           │
+└─────────────┬──────────────────────────────────┬──────────────┘
+              │                                  │
+              ▼                                  ▼
 ┌───────────────────────────┐       ┌────────────────────────────┐
 │    Query Orchestrator     │       │      Memory Agent          │
-│         (app.py)          │◄─────►│      (memory.py)           │
-└───────────┬───────────────┘       │   (ChromaDB + Embeddings)  │
-            │                       └────────────────────────────┘
-            ▼
+│   (llm_providers.py)      │◄─────►│      (memory.py)           │
+└─────────────┬─────────────┘       │   (ChromaDB + Embeddings)  │
+              │                     └────────────────────────────┘
+              ▼
 ┌───────────────────────────┐    ┌────────────────────────────┐
-│   LLM Provider System     │    │   Synthesis System         │
-│   (llm_providers.py)      │    │   (offline_model.py)       │
-│                           │    │                            │
-│  ┌─────────────────────┐  │    │  ┌──────────────────────┐  │
-│  │ Online (OpenAI/g4f) │  │    │  │ Local Synthesizer    │  │
-│  └─────────────────────┘  │    │  └──────────────────────┘  │
-│  ┌─────────────────────┐  │    │  ┌──────────────────────┐  │
-│  │ Network Nodes (IPs) │  │    │  │ Remote Synthesizer   │  │
-│  └─────────────────────┘  │    │  └──────────────────────┘  │
-└───────────────────────────┘    └────────────────────────────┘
+│   Model Fleet             │    │   Synthesis System         │
+│                           │    │   (offline_model.py)       │
+│  ┌─────────────────────┐  │    │                            │
+│  │ Online (OpenAI/g4f) │  │    │  ┌──────────────────────┐  │
+│  └─────────────────────┘  │    │  │ Local Synthesizer    │  │
+│  ┌─────────────────────┐  │    │  └──────────────────────┘  │
+│  │ Network Nodes (IPs) │  │    │  ┌──────────────────────┐  │
+│  └─────────────────────┘  │    │  │ Remote Synthesizer   │  │
+└───────────────────────────┘    │  └──────────────────────┘  │
+                                 └────────────────────────────┘
 ```
 
 ## Core Components
@@ -58,7 +64,23 @@ The AI Nexus uses a modular architecture with intelligent fallback systems to en
 User Input → get_all_responses() → synthesize_responses() → Display
 ```
 
-### 2. LLM Provider System (`llm_providers.py`)
+**Flow**:
+```python
+User Input → get_all_responses() → synthesize_responses() → Display
+```
+
+### 2. API Layer (`api.py`)
+
+**Purpose**: Exposes the core logic to external clients (Mobile App).
+
+**Key Endpoints**:
+- `POST /chat`: Unified entry point for queries. Accepts model selection and memory flags.
+- `GET /history`: Retrieves full chat history from the Memory Agent.
+- `GET /models`: Lists available models (Online & Offline).
+
+**Technology**: FastAPI + Uvicorn.
+
+### 3. LLM Provider System (`llm_providers.py`)
 
 **Purpose**: Manages connections to different LLM providers with intelligent fallbacks.
 
