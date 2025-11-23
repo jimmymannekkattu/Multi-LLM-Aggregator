@@ -11,3 +11,4 @@ chromadb
 sentence-transformers
 fastapi
 uvicorn
+qrcode[pil]

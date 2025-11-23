@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { StyleSheet, Text, View, TextInput, TouchableOpacity, ScrollView, SafeAreaView, Modal, FlatList, ActivityIndicator } from 'react-native';
+import { Camera } from 'expo-camera';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // --- CONFIG ---
@@ -23,9 +24,30 @@ export default function App() {
     const [selectedOnline, setSelectedOnline] = useState([]);
     const [selectedOffline, setSelectedOffline] = useState([]);
 
+    // Scanner State
+    const [hasPermission, setHasPermission] = useState(null);
+    const [scanned, setScanned] = useState(false);
+    const [showScanner, setShowScanner] = useState(false);
+
     useEffect(() => {
+        (async () => {
+            const { status } = await Camera.requestCameraPermissionsAsync();
+            setHasPermission(status === 'granted');
+        })();
         loadSettings();
     }, []);
+
+    const handleBarCodeScanned = ({ type, data }) => {
+        setScanned(true);
+        if (data.startsWith("http")) {
+            setServerUrl(data);
+            AsyncStorage.setItem('serverUrl', data);
+            setShowScanner(false);
+            alert(`Connected to ${data}!`);
+        } else {
+            alert("Invalid QR Code");
+        }
+    };
 
     const loadSettings = async () => {
         try {
@@ -136,6 +158,22 @@ export default function App() {
 
     const renderSettings = () => (
         <ScrollView style={styles.tabContent}>
+            <TouchableOpacity style={styles.scanBtn} onPress={() => { setScanned(false); setShowScanner(true); }}>
+                <Text style={styles.btnText}>📷 Scan QR Code</Text>
+            </TouchableOpacity>
+
+            <Modal visible={showScanner} animationType="slide">
+                <View style={styles.scannerContainer}>
+                    <Camera
+                        onBarCodeScanned={scanned ? undefined : handleBarCodeScanned}
+                        style={StyleSheet.absoluteFillObject}
+                    />
+                    <TouchableOpacity style={styles.closeBtn} onPress={() => setShowScanner(false)}>
+                        <Text style={styles.btnText}>Close Scanner</Text>
+                    </TouchableOpacity>
+                </View>
+            </Modal>
+
             <Text style={styles.label}>Server URL</Text>
             <TextInput
                 style={styles.input}
@@ -227,6 +265,9 @@ const styles = StyleSheet.create({
     historyMeta: { color: '#666', fontSize: 12 },
 
     // Settings
+    scanBtn: { backgroundColor: '#ff4b4b', padding: 15, borderRadius: 10, marginBottom: 20 },
+    scannerContainer: { flex: 1, flexDirection: 'column', justifyContent: 'flex-end' },
+    closeBtn: { backgroundColor: '#ff4b4b', padding: 20, alignItems: 'center' },
     label: { color: '#ff4b4b', marginTop: 20, marginBottom: 10, fontWeight: 'bold' },
     checkbox: { backgroundColor: '#262730', padding: 15, borderRadius: 10, marginBottom: 5 },
     checked: { backgroundColor: '#ff4b4b' },

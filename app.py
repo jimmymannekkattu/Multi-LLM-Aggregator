@@ -3,11 +3,24 @@ import asyncio
 import httpx
 from llm_providers import fetch_openai, fetch_anthropic, fetch_gemini, fetch_perplexity, fetch_ollama, fetch_generic_openai_compatible
 from offline_model import synthesize_responses
+import qrcode
+import socket
+import io
 try:
     from agents.memory import add_to_memory, retrieve_context, export_dataset
     MEMORY_AVAILABLE = True
 except ImportError:
     MEMORY_AVAILABLE = False
+
+def get_local_ip():
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.connect(("8.8.8.8", 80))
+        ip = s.getsockname()[0]
+        s.close()
+        return ip
+    except:
+        return "127.0.0.1"
 
 # Page Config
 st.set_page_config(
@@ -112,7 +125,7 @@ with st.sidebar:
     st.title("⚙️ Configuration")
     
     # --- Tabbed Interface for Cleaner UI ---
-    tab_online, tab_offline, tab_knowledge = st.tabs(["🌐 Online", "💻 Offline", "🧠 Brain"])
+    tab_online, tab_offline, tab_knowledge, tab_mobile = st.tabs(["🌐 Online", "💻 Offline", "🧠 Brain", "📱 Mobile"])
     
     # --- TAB 1: ONLINE MODELS ---
     with tab_online:
@@ -285,6 +298,28 @@ with st.sidebar:
             st.error("Dependencies missing.")
             enable_learning = False
             enable_context = False
+
+    # --- TAB 4: MOBILE CONNECT ---
+    with tab_mobile:
+        st.subheader("📱 Connect Mobile App")
+        st.info("Scan this QR code with the AI Nexus Mobile App to connect.")
+        
+        local_ip = get_local_ip()
+        api_url = f"http://{local_ip}:8000"
+        
+        # Generate QR
+        qr = qrcode.QRCode(version=1, box_size=10, border=5)
+        qr.add_data(api_url)
+        qr.make(fit=True)
+        img = qr.make_image(fill_color="black", back_color="white")
+        
+        # Convert to bytes for streamlit
+        img_byte_arr = io.BytesIO()
+        img.save(img_byte_arr, format='PNG')
+        img_byte_arr = img_byte_arr.getvalue()
+        
+        st.image(img_byte_arr, caption=f"API URL: {api_url}", width=200)
+        st.markdown(f"**Manual Entry:** `{api_url}`")
 
 st.title("🤖 AI Nexus")
 st.markdown("Ask one question. Get the combined wisdom of selected AI models, synthesized by your local AI.")
