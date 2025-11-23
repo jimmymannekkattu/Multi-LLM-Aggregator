@@ -1,10 +1,10 @@
 # Agents Documentation
 
-This document provides detailed technical documentation for the Multi-LLM Aggregator's agent system.
+This document provides detailed technical documentation for the AI Nexus agent system.
 
 ## Overview
 
-The Multi-LLM Aggregator uses a modular architecture with intelligent fallback systems to ensure the application works in various environments (local, cloud, with/without API keys).
+The AI Nexus uses a modular architecture with intelligent fallback systems to ensure the application works in various environments (local, cloud, with/without API keys).
 
 ## Architecture Diagram
 
@@ -12,25 +12,26 @@ The Multi-LLM Aggregator uses a modular architecture with intelligent fallback s
 ┌─────────────────────────────────────────────────────────────┐
 │                       User Interface                         │
 │                     (Streamlit UI)                          │
-└─────────────────────────┬───────────────────────────────────┘
-                          │
-                          ▼
-┌─────────────────────────────────────────────────────────────┐
-│                    Query Orchestrator                        │
-│                     (app.py)                                │
-└───────────┬──────────────────────────────────┬──────────────┘
-            │                                  │
-            ▼                                  ▼
+└───────────┬───────────────────────────────────┬─────────────┘
+            │                                   │
+            ▼                                   ▼
+┌───────────────────────────┐       ┌────────────────────────────┐
+│    Query Orchestrator     │       │      Memory Agent          │
+│         (app.py)          │◄─────►│      (memory.py)           │
+└───────────┬───────────────┘       │   (ChromaDB + Embeddings)  │
+            │                       └────────────────────────────┘
+            ▼
 ┌───────────────────────────┐    ┌────────────────────────────┐
 │   LLM Provider System     │    │   Synthesis System         │
 │   (llm_providers.py)      │    │   (offline_model.py)       │
+│                           │    │                            │
+│  ┌─────────────────────┐  │    │  ┌──────────────────────┐  │
+│  │ Online (OpenAI/g4f) │  │    │  │ Local Synthesizer    │  │
+│  └─────────────────────┘  │    │  └──────────────────────┘  │
+│  ┌─────────────────────┐  │    │  ┌──────────────────────┐  │
+│  │ Network Nodes (IPs) │  │    │  │ Remote Synthesizer   │  │
+│  └─────────────────────┘  │    │  └──────────────────────┘  │
 └───────────────────────────┘    └────────────────────────────┘
-            │                                  │
-            ▼                                  ▼
-┌───────────────────────────────────────────────────────────┐
-│                   Fallback Chain                          │
-│  API Keys → g4f Free Web → Error Handling                │
-└───────────────────────────────────────────────────────────┘
 ```
 
 ## Core Components
@@ -125,7 +126,25 @@ async def get_all_responses(query: str):
 - Automatic error handling per provider
 - Returns all results even if some fail
 
-### 3. Synthesis System (`offline_model.py`)
+### 3. Memory Agent (`memory.py`)
+
+**Purpose**: Implements Knowledge Distillation by storing and retrieving expert answers.
+
+**Technology**:
+- **Vector DB**: ChromaDB (local persistence)
+- **Embeddings**: `all-MiniLM-L6-v2` (via `sentence-transformers`)
+
+**Functions**:
+- `add_to_memory(query, answer)`: Embeds and saves Q&A pairs.
+- `retrieve_context(query)`: Finds semantically similar past Q&A pairs.
+- `export_dataset()`: Dumps memory to JSONL for fine-tuning.
+
+**Workflow**:
+1. **Learning**: When Online models answer, the result is saved to memory.
+2. **Recall**: When a new query arrives, relevant memory is retrieved.
+3. **Distillation**: The Offline model receives this memory as context, allowing it to answer "expertly" without external help.
+
+### 4. Synthesis System (`offline_model.py`)
 
 **Purpose**: Combines multiple LLM responses into a single, coherent answer.
 

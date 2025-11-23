@@ -125,17 +125,77 @@ async def fetch_perplexity(query: str, client: httpx.AsyncClient):
     except Exception as e:
         return f"Error (Perplexity): {str(e)}"
 
-async def get_all_responses(query: str):
-    async with httpx.AsyncClient() as client:
-        results = await asyncio.gather(
-            fetch_openai(query, client),
-            fetch_anthropic(query, client),
-            fetch_gemini(query, client),
-            fetch_perplexity(query, client)
+async def fetch_ollama(query: str, model: str, client: httpx.AsyncClient):
+    """
+    Fetch response from local Ollama instance.
+    """
+    try:
+        response = await client.post(
+            "http://localhost:11434/api/generate",
+            json={
+                "model": model,
+                "prompt": query,
+                "stream": False
+            },
+            timeout=60.0 # Longer timeout for local models
         )
-    return {
-        "ChatGPT": results[0],
-        "Claude": results[1],
-        "Gemini": results[2],
-        "Perplexity": results[3]
-    }
+        response.raise_for_status()
+        return response.json()["response"]
+    except Exception as e:
+        return f"Error (Ollama - {model}): {str(e)}"
+
+async def fetch_generic_openai_compatible(query: str, api_key: str, base_url: str, model: str, provider_name: str, client: httpx.AsyncClient):
+    """
+    Fetch response from any OpenAI-compatible API (Groq, OpenRouter, etc.)
+    """
+    try:
+        # Ensure base_url ends with /v1/chat/completions or similar if not provided
+        # But usually users provide the base URL like "https://api.groq.com/openai/v1"
+        # We will append /chat/completions if it looks like a base root
+        
+        url = base_url
+        if not url.endswith("/chat/completions"):
+            if url.endswith("/"):
+                url += "chat/completions"
+            else:
+                url += "/chat/completions"
+                
+        response = await client.post(
+            url,
+            headers={"Authorization": f"Bearer {api_key}"},
+            json={
+                "model": model,
+                "messages": [{"role": "user", "content": query}]
+            },
+            timeout=TIMEOUT
+        )
+        response.raise_for_status()
+        return response.json()["choices"][0]["message"]["content"]
+    except Exception as e:
+        return f"Error ({provider_name}): {str(e)}"
+
+async def get_all_responses(query: str, active_providers: list):
+    """
+    Fetch responses from selected providers.
+    active_providers: List of dicts [{"name": "ChatGPT", "func": fetch_openai}, ...]
+    """
+    async with httpx.AsyncClient() as client:
+        tasks = []
+        provider_names = []
+        
+        for provider in active_providers:
+            provider_names.append(provider["name"])
+            if provider["type"] == "ollama":
+                tasks.append(fetch_ollama(query, provider["model"], client))
+            elif provider["name"] == "ChatGPT":
+                tasks.append(fetch_openai(query, client))
+            elif provider["name"] == "Claude":
+                tasks.append(fetch_anthropic(query, client))
+            elif provider["name"] == "Gemini":
+                tasks.append(fetch_gemini(query, client))
+            elif provider["name"] == "Perplexity":
+                tasks.append(fetch_perplexity(query, client))
+                
+        results = await asyncio.gather(*tasks)
+        
+    return dict(zip(provider_names, results))

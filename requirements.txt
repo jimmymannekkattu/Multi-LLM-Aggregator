@@ -7,3 +7,5 @@ python-dotenv
 watchdog
 g4f
 curl_cffi
+chromadb
+sentence-transformers

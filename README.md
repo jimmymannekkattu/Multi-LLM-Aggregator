@@ -1,4 +1,4 @@
-# Multi-LLM Aggregator
+# AI Nexus
 
 A powerful application that queries multiple LLMs (ChatGPT, Claude, Gemini, Perplexity) and synthesizes their answers using AI models. **No API keys required** - works completely free using web access!
 
@@ -6,6 +6,14 @@ A powerful application that queries multiple LLMs (ChatGPT, Claude, Gemini, Perp
 
 - **Multi-LLM Querying**: Get responses from ChatGPT, Claude, Gemini, and Perplexity simultaneously
 - **Free Web Access**: Uses [g4f](https://github.com/xtekky/gpt4free) to access LLMs without API keys
+- **🧠 Knowledge Distillation**:
+  - **Memory System**: Automatically learns from online experts (RAG).
+  - **Instant Training**: Offline models instantly get smarter by accessing the shared memory.
+  - **Dataset Export**: Export Q&A pairs to JSONL for fine-tuning.
+- **🌐 Distributed Computing**:
+  - **Network Nodes**: Connect multiple computers running Ollama.
+  - **Unified Fleet**: Query models across your entire local network.
+  - **Distributed Brain**: Any node can act as the synthesizer using the central memory.
 - **Intelligent Synthesis**: Combines multiple responses into one comprehensive answer
 - **Flexible Fallbacks**: 
   - Local synthesis with Ollama (if installed)
@@ -37,6 +45,8 @@ A powerful application that queries multiple LLMs (ChatGPT, Claude, Gemini, Perp
 3.  **Install Dependencies**:
     ```bash
     pip install -r requirements.txt
+    # Install vector DB support
+    pip install chromadb sentence-transformers
     ```
 
 4.  **Run the app**:

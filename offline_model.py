@@ -4,9 +4,9 @@ import json
 OLLAMA_URL = "http://localhost:11434/api/generate"
 MODEL_NAME = "llama3" # Or 'mistral', 'llama2', etc.
 
-async def synthesize_responses(query: str, responses: dict):
+async def synthesize_responses(query: str, responses: dict, context: str = "", target_url: str = OLLAMA_URL, target_model: str = MODEL_NAME):
     """
-    Synthesizes multiple LLM responses into a single coherent answer using a local Ollama model.
+    Synthesizes multiple LLM responses into a single coherent answer using a local or remote Ollama model.
     """
     
     # Construct a prompt that includes all the responses
@@ -18,9 +18,16 @@ async def synthesize_responses(query: str, responses: dict):
     if not context_text:
         return "Error: No valid responses received from online providers to synthesize."
 
+    # Add retrieved memory context if available
+    memory_section = ""
+    if context:
+        memory_section = f"\n\n--- RELEVANT KNOWLEDGE FROM MEMORY ---\n{context}\n--------------------------------------\n"
+
     prompt = f"""
     You are an expert synthesizer. 
     User Question: "{query}"
+    
+    {memory_section}
     
     Below are responses from multiple advanced AI models:
     {context_text}
@@ -31,6 +38,7 @@ async def synthesize_responses(query: str, responses: dict):
     3. Synthesize a single, high-quality, detailed answer for the user.
     4. Resolve any conflicts between the models if possible.
     5. Do not explicitly mention "Model A said this", just give the final answer.
+    6. If 'RELEVANT KNOWLEDGE FROM MEMORY' is provided, use it to improve accuracy and confidence.
     
     Final Answer:
     """
@@ -38,9 +46,9 @@ async def synthesize_responses(query: str, responses: dict):
     try:
         async with httpx.AsyncClient() as client:
             response = await client.post(
-                OLLAMA_URL,
+                target_url,
                 json={
-                    "model": MODEL_NAME,
+                    "model": target_model,
                     "prompt": prompt,
                     "stream": False
                 },
