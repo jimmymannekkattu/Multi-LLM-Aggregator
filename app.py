@@ -1,7 +1,7 @@
 import streamlit as st
 import asyncio
 import httpx
-from llm_providers import fetch_openai, fetch_anthropic, fetch_gemini, fetch_perplexity, fetch_ollama, fetch_generic_openai_compatible
+from llm_providers import fetch_openai, fetch_anthropic, fetch_gemini, fetch_perplexity, fetch_ollama, fetch_generic_openai_compatible, fetch_g4f
 from offline_model import synthesize_responses
 import qrcode
 import socket
@@ -11,6 +11,8 @@ try:
     MEMORY_AVAILABLE = True
 except ImportError:
     MEMORY_AVAILABLE = False
+
+from agents.discovery import get_g4f_models, get_openrouter_models, verify_model
 
 def get_local_ip():
     try:
@@ -30,8 +32,27 @@ st.set_page_config(
 )
 
 # Initialize Session State
+import json
+import os
+
+PROVIDERS_FILE = "custom_providers.json"
+
+def load_providers():
+    if os.path.exists(PROVIDERS_FILE):
+        try:
+            with open(PROVIDERS_FILE, "r") as f:
+                return json.load(f)
+        except:
+            return []
+    return []
+
+def save_providers(providers):
+    with open(PROVIDERS_FILE, "w") as f:
+        json.dump(providers, f)
+
 if "custom_providers" not in st.session_state:
-    st.session_state.custom_providers = []
+    st.session_state.custom_providers = load_providers()
+
 if "network_nodes" not in st.session_state:
     st.session_state.network_nodes = [] # List of {"name": "PC1", "url": "http://..."}
 
@@ -125,7 +146,7 @@ with st.sidebar:
     st.title("⚙️ Configuration")
     
     # --- Tabbed Interface for Cleaner UI ---
-    tab_online, tab_offline, tab_knowledge, tab_mobile = st.tabs(["🌐 Online", "💻 Offline", "🧠 Brain", "📱 Mobile"])
+    tab_online, tab_offline, tab_knowledge, tab_mobile, tab_discovery = st.tabs(["🌐 Online", "💻 Offline", "🧠 Brain", "📱 Mobile", "🔍 Discovery"])
     
     # --- TAB 1: ONLINE MODELS ---
     with tab_online:
@@ -160,6 +181,7 @@ with st.sidebar:
                         "api_key": new_api_key,
                         "model": new_model_name
                     })
+                    save_providers(st.session_state.custom_providers)
                     st.success(f"Added {new_provider_name}!")
                     st.rerun()
                 else:
@@ -173,6 +195,7 @@ with st.sidebar:
                     col_p.text(f"{p['name']}")
                     if col_del.button("❌", key=f"del_{i}"):
                         st.session_state.custom_providers.pop(i)
+                        save_providers(st.session_state.custom_providers)
                         st.rerun()
 
         # Selection
@@ -321,6 +344,79 @@ with st.sidebar:
         st.image(img_byte_arr, caption=f"API URL: {api_url}", width=200)
         st.markdown(f"**Manual Entry:** `{api_url}`")
 
+    # --- TAB 5: DISCOVERY ---
+    with tab_discovery:
+        st.subheader("🔍 Model Discovery")
+        st.info("Find and add new models to your fleet.")
+        
+        disc_mode = st.radio("Source", ["Free Web (g4f)", "OpenRouter (API)"], horizontal=True)
+        
+        if disc_mode == "Free Web (g4f)":
+            st.markdown("### Popular Free Models")
+            if st.button("Scan for Models"):
+                with st.spinner("Scanning..."):
+                    models = asyncio.run(get_g4f_models())
+                    for m in models:
+                        col_name, col_act = st.columns([3, 1])
+                        col_name.text(m["display"])
+                        if col_act.button("Test & Add", key=f"add_{m['name']}"):
+                            with st.status(f"Verifying {m['name']}...") as status:
+                                success, msg = asyncio.run(verify_model(m['name'], "g4f"))
+                                if success:
+                                    status.update(label="✅ Verified!", state="complete")
+                                    # Add to custom providers
+                                    new_p = {
+                                        "name": m["display"],
+                                        "api_key": "",
+                                        "base_url": "",
+                                        "model": m["name"],
+                                        "template": "Custom" # Handled by generic fetcher if we tweak it, or we need a specific g4f handler
+                                    }
+                                    # NOTE: Currently app.py generic fetcher assumes OpenAI format. 
+                                    # We need to handle 'g4f' type in the main loop or wrap it.
+                                    # For now, let's mark it as special type.
+                                    new_p["type"] = "g4f_discovered"
+                                    st.session_state.custom_providers.append(new_p)
+                                    save_providers(st.session_state.custom_providers)
+                                    st.success(f"Added {m['name']}!")
+                                    st.rerun()
+                                else:
+                                    status.update(label="❌ Failed", state="error")
+                                    st.error(msg)
+                                    
+        elif disc_mode == "OpenRouter (API)":
+            st.markdown("### OpenRouter Discovery")
+            or_key = st.text_input("OpenRouter API Key", type="password")
+            if st.button("Fetch Models") and or_key:
+                with st.spinner("Fetching catalog..."):
+                    models = asyncio.run(get_openrouter_models(or_key))
+                    if isinstance(models, list):
+                        st.success(f"Found {len(models)} models!")
+                        # Search
+                        search_term = st.text_input("Search Models", placeholder="llama, mistral, etc.")
+                        filtered = [m for m in models if search_term.lower() in m["name"].lower()] if search_term else models[:20]
+                        
+                        for m in filtered:
+                            with st.expander(f"{m['display']}"):
+                                st.write(f"**ID:** `{m['name']}`")
+                                st.write(f"**Context:** {m['context']}")
+                                st.write(f"**Cost:** ${m['cost_prompt']}/1M prompt")
+                                if st.button("Add to Fleet", key=f"add_or_{m['name']}"):
+                                    new_p = {
+                                        "name": m["display"],
+                                        "api_key": or_key,
+                                        "base_url": "https://openrouter.ai/api/v1",
+                                        "model": m["name"],
+                                        "template": "OpenRouter"
+                                    }
+
+                                    st.session_state.custom_providers.append(new_p)
+                                    save_providers(st.session_state.custom_providers)
+                                    st.success(f"Added {m['name']}!")
+                                    st.rerun()
+                    else:
+                        st.error(models["error"])
+
 st.title("🤖 AI Nexus")
 st.markdown("Ask one question. Get the combined wisdom of selected AI models, synthesized by your local AI.")
 
@@ -348,18 +444,33 @@ if ask_button and query:
         if custom_provider["name"] in selected_online_models:
             # Create a partial function or wrapper for the custom provider
             # We need to capture the specific config for this provider
-            def make_custom_fetcher(cp):
-                async def fetcher(q, c):
-                    return await fetch_generic_openai_compatible(
-                        q, cp["api_key"], cp["base_url"], cp["model"], cp["name"], c
-                    )
-                return fetcher
-            
-            active_providers.append({
-                "name": custom_provider["name"],
-                "type": "custom",
-                "func": make_custom_fetcher(custom_provider)
-            })
+            # Check type
+            if custom_provider.get("type") == "g4f_discovered":
+                def make_g4f_fetcher(cp):
+                    async def fetcher(q, c):
+                        # fetch_g4f doesn't use client, it uses g4f internal
+                        return await fetch_g4f(q, cp["model"], cp["name"])
+                    return fetcher
+                
+                active_providers.append({
+                    "name": custom_provider["name"],
+                    "type": "g4f_discovered",
+                    "func": make_g4f_fetcher(custom_provider)
+                })
+            else:
+                # Generic OpenAI Compatible
+                def make_custom_fetcher(cp):
+                    async def fetcher(q, c):
+                        return await fetch_generic_openai_compatible(
+                            q, cp["api_key"], cp["base_url"], cp["model"], cp["name"], c
+                        )
+                    return fetcher
+                
+                active_providers.append({
+                    "name": custom_provider["name"],
+                    "type": "custom",
+                    "func": make_custom_fetcher(custom_provider)
+                })
     
     # Add Distributed Ollama Models
     for m in selected_ollama_models:

@@ -26,11 +26,6 @@ The AI Nexus uses a modular architecture with intelligent fallback systems to en
 │   (llm_providers.py)      │◄─────►│      (memory.py)           │
 └─────────────┬─────────────┘       │   (ChromaDB + Embeddings)  │
               │                     └────────────────────────────┘
-              ▼
-┌───────────────────────────┐    ┌────────────────────────────┐
-│   Model Fleet             │    │   Synthesis System         │
-│                           │    │   (offline_model.py)       │
-│  ┌─────────────────────┐  │    │                            │
 │  │ Online (OpenAI/g4f) │  │    │  ┌──────────────────────┐  │
 │  └─────────────────────┘  │    │  │ Local Synthesizer    │  │
 │  ┌─────────────────────┐  │    │  └──────────────────────┘  │
@@ -166,7 +161,42 @@ async def get_all_responses(query: str):
 2. **Recall**: When a new query arrives, relevant memory is retrieved.
 3. **Distillation**: The Offline model receives this memory as context, allowing it to answer "expertly" without external help.
 
-### 4. Synthesis System (`offline_model.py`)
+**Key Constraints**:
+- Maximum of 10 relevant context entries.
+- Uses semantic similarity search via `embeddings.query()`.
+
+### 5. Discovery Agent (`agents/discovery.py`)
+
+**Purpose**: Enables dynamic model discovery and verification, allowing users to find and add new models to their fleet.
+
+**Key Functions**:
+
+```python
+async def get_g4f_models():
+    # Returns curated list of popular free models
+    return POPULAR_FREE_MODELS  # gpt-4, llama-3, claude-3, etc.
+
+async def get_openrouter_models(api_key: str):
+    # Fetches model catalog from OpenRouter API
+    response = await client.get("https://openrouter.ai/api/v1/models", ...)
+    # Returns list with: name, context_length, pricing
+
+async def verify_model(model_name: str, provider_type: str, ...):
+    # Tests model availability by sending "Say 'Hello'"
+    # Returns (success: bool, response: str)
+```
+
+**Supported Sources**:
+1.  **Free Web (g4f)**: Popular models available via free web access.
+2.  **OpenRouter**: 100+ premium models accessible via API key.
+
+**Workflow**:
+1.  User selects source (g4f or OpenRouter).
+2.  Discovery agent fetches available models.
+3.  User can test-verify models before adding.
+4.  Verified models are saved to `custom_providers.json` for persistence.
+
+### 6. Synthesis System (`offline_model.py`)
 
 **Purpose**: Combines multiple LLM responses into a single, coherent answer.
 

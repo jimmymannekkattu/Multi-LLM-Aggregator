@@ -6,6 +6,8 @@ AI Nexus is a powerful, distributed AI platform that aggregates intelligence fro
 
 **✨ Key Features:**
 - **Free Web Access**: Uses [g4f](https://github.com/xtekky/gpt4free) to query top models without API keys.
+- **🔍 Dynamic Model Discovery**: Find and add 100+ models from OpenRouter or free web sources.
+- **📱 QR Code Pairing**: Instant mobile connection via QR code scanning.
 - **🧠 Knowledge Distillation**: Your local AI "learns" from online experts via a RAG memory system.
 - **🌐 Distributed Computing**: Connect multiple computers to form a unified local AI fleet.
 - **📱 Mobile App**: Chat with your Swarm from Android or iOS.
@@ -83,7 +85,16 @@ uvicorn api:app --host 0.0.0.0 --port 8000 --reload
     - Install **Expo Go** from the App Store (iOS) or Play Store (Android).
     - Scan the QR code shown in the terminal.
 
-### Step 3: Connect
+### Step 3: Connect Your Mobile App
+
+**Option 1: QR Code Pairing (Easiest)**
+1.  In the **Desktop App**, go to the Sidebar → **📱 Mobile** tab.
+2.  A QR code showing your API URL will be displayed.
+3.  In the **Mobile App**, go to **Settings** → tap **"📷 Scan QR Code"**.
+4.  Point your phone at the QR code on your screen.
+5.  The app will automatically connect!
+
+**Option 2: Manual Entry**
 1.  In the mobile app, go to the **Settings** tab.
 2.  Enter your PC's Local IP Address:
     - Windows: Run `ipconfig` (look for IPv4 Address).
@@ -102,6 +113,27 @@ AI Nexus makes your local models smarter over time.
 3.  **Learn**: The system saves the high-quality answers to a local vector database.
 4.  **Recall**: When you ask a similar question later (even offline!), the system retrieves this memory to help your local model answer correctly.
 5.  **Export**: Click "Export Training Data" to get a `.jsonl` file for fine-tuning.
+
+---
+
+## 🔍 Dynamic Model Discovery
+
+Expand your AI fleet with 100+ models!
+
+### Free Web Models (g4f)
+1.  Go to Sidebar → **🔍 Discovery**.
+2.  Select **"Free Web (g4f)"**.
+3.  Click **"Scan for Models"**.
+4.  Click **"Test & Add"** on any model (e.g., Llama 3, Mixtral).
+5.  The model will be verified and added to your active fleet!
+
+### OpenRouter (100+ Premium Models)
+1.  Go to Sidebar → **🔍 Discovery**.
+2.  Select **"OpenRouter (API)"**.
+3.  Enter your OpenRouter API Key.
+4.  Click **"Fetch Models"**.
+5.  Search for any model (e.g., "falcon", "vicuna", "deepseek").
+6.  Click **"Add to Fleet"** to make it available instantly!
 
 ---
 
