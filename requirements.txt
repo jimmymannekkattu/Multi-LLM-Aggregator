@@ -1,0 +1,9 @@
+streamlit
+openai
+anthropic
+google-generativeai
+httpx
+python-dotenv
+watchdog
+g4f
+curl_cffi
