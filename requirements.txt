@@ -13,6 +13,6 @@ chromadb
 sentence-transformers
 pydantic
 websockets
-sse-starletteapi
-uvicorn
-qrcode[pil]
+sse-starlette
+pytest
+pytest-asyncio
