@@ -13,6 +13,17 @@ from offline_model import synthesize_responses
 # Initialize FastAPI
 app = FastAPI(title="AI Nexus API", description="Backend for AI Nexus Mobile App")
 
+# Add CORS Middleware
+from fastapi.middleware.cors import CORSMiddleware
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Allow all origins for mobile access
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 # --- Data Models ---
 class ChatRequest(BaseModel):
     query: str
