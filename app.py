@@ -12,7 +12,7 @@ try:
 except ImportError:
     MEMORY_AVAILABLE = False
 
-from agents.discovery import get_g4f_models, get_openrouter_models, verify_model
+from agents.discovery import get_g4f_models, get_openrouter_models, verify_model, search_models
 
 def get_local_ip():
     try:
@@ -349,7 +349,7 @@ with st.sidebar:
         st.subheader("🔍 Model Discovery")
         st.info("Find and add new models to your fleet.")
         
-        disc_mode = st.radio("Source", ["Free Web (g4f)", "OpenRouter (API)"], horizontal=True)
+        disc_mode = st.radio("Source", ["Global Search", "Free Web (g4f)", "OpenRouter (API)", "Local/Network (Ollama)"], horizontal=True)
         
         if disc_mode == "Free Web (g4f)":
             st.markdown("### Popular Free Models")
@@ -426,6 +426,147 @@ with st.sidebar:
                     else:
                         st.error(models["error"])
 
+        elif disc_mode == "Local/Network (Ollama)":
+            st.markdown("### Offline Model Discovery")
+            st.info("Scanning Localhost and configured Network Nodes...")
+            
+            if "discovered_ollama_models" not in st.session_state:
+                st.session_state.discovered_ollama_models = []
+
+            if st.button("Scan Network"):
+                with st.spinner("Scanning fleet..."):
+                    found_models = []
+                    # 1. Localhost
+                    try:
+                        tags = httpx.get("http://localhost:11434/api/tags", timeout=1.0).json()["models"]
+                        for m in tags:
+                            found_models.append({
+                                "display": f"🏠 [Local] {m['name']}",
+                                "model": m["name"],
+                                "base_url": "http://localhost:11434",
+                                "node": "Local"
+                            })
+                    except:
+                        pass
+
+                    # 2. Network Nodes
+                    for node in st.session_state.network_nodes:
+                        try:
+                            base_url = node["url"].rstrip("/")
+                            tags = httpx.get(f"{base_url}/api/tags", timeout=2.0).json()["models"]
+                            for m in tags:
+                                found_models.append({
+                                    "display": f"🌐 [{node['name']}] {m['name']}",
+                                    "model": m["name"],
+                                    "base_url": base_url,
+                                    "node": node["name"]
+                                })
+                        except:
+                            pass
+                    
+                    st.session_state.discovered_ollama_models = found_models
+            
+            if st.session_state.discovered_ollama_models:
+                for m in st.session_state.discovered_ollama_models:
+                    col_name, col_act = st.columns([3, 1])
+                    col_name.text(m["display"])
+                    
+                    # Check if already added
+                    is_added = any(p["name"] == m["display"] for p in st.session_state.custom_providers)
+                    
+                    if is_added:
+                        col_act.success("Added")
+                    else:
+                        if col_act.button("Test & Add", key=f"add_ollama_{m['display']}"):
+                            with st.status(f"Verifying {m['model']} on {m['node']}...") as status:
+                                success, msg = asyncio.run(verify_model(m['model'], "Ollama", base_url=m["base_url"]))
+                                if success:
+                                    status.update(label="✅ Verified!", state="complete")
+                                    new_p = {
+                                        "name": m["display"],
+                                        "api_key": "",
+                                        "base_url": m["base_url"],
+                                        "model": m["model"],
+                                        "template": "Custom",
+                                        "type": "ollama_discovered"
+                                    }
+                                    st.session_state.custom_providers.append(new_p)
+                                    save_providers(st.session_state.custom_providers)
+                                    st.success(f"Added {m['display']}!")
+                                    st.rerun()
+                                else:
+                                    status.update(label="❌ Failed", state="error")
+                                    st.error(msg)
+        elif disc_mode == "Global Search":
+            st.markdown("### 🌍 Global Model Search")
+            st.info("Search across Free Web (g4f) and OpenRouter.")
+            
+            search_query = st.text_input("Search for a model (e.g., 'llama', 'gpt', 'mistral')")
+            or_key_search = st.text_input("OpenRouter API Key (Optional)", type="password", help="Required for OpenRouter results")
+            
+            if "search_results" not in st.session_state:
+                st.session_state.search_results = []
+
+            if st.button("Search") and search_query:
+                with st.spinner(f"Searching for '{search_query}'..."):
+                    st.session_state.search_results = asyncio.run(search_models(search_query, or_key_search))
+            
+            if st.session_state.search_results:
+                st.success(f"Found {len(st.session_state.search_results)} models.")
+                for m in st.session_state.search_results:
+                    with st.expander(f"{m['display']} ({m['source']})"):
+                        st.write(f"**Provider:** {m['provider']}")
+                        if m.get("context") != "Unknown":
+                            st.write(f"**Context:** {m.get('context')}")
+                            st.write(f"**Cost:** ${m.get('cost_prompt')}/1M prompt")
+                        
+                        # Check if already added
+                        is_added = any(p["name"] == m["display"] for p in st.session_state.custom_providers)
+                        
+                        if is_added:
+                            st.success("✅ Added")
+                        else:
+                            if st.button("Test & Add", key=f"add_search_{m['name']}_{m['source']}"):
+                                with st.status(f"Verifying {m['name']}...") as status:
+                                    # Verify based on source
+                                    if m["source"] == "g4f":
+                                        success, msg = asyncio.run(verify_model(m['name'], "g4f"))
+                                        ptype = "g4f_discovered"
+                                        base_url = ""
+                                        api_key = ""
+                                        template = "Custom"
+                                    elif m["source"] == "OpenRouter":
+                                        success, msg = asyncio.run(verify_model(m['name'], "OpenRouter", api_key=or_key_search))
+                                        ptype = "OpenRouter" # Or custom type if needed
+                                        base_url = "https://openrouter.ai/api/v1"
+                                        api_key = or_key_search
+                                        template = "OpenRouter"
+                                    else:
+                                        success, msg = False, "Unknown source"
+
+                                    if success:
+                                        status.update(label="✅ Verified!", state="complete")
+                                        new_p = {
+                                            "name": m["display"],
+                                            "api_key": api_key,
+                                            "base_url": base_url,
+                                            "model": m["name"],
+                                            "template": template,
+                                            "type": ptype
+                                        }
+                                        st.session_state.custom_providers.append(new_p)
+                                        save_providers(st.session_state.custom_providers)
+                                        st.success(f"Added {m['display']}!")
+                                        st.rerun()
+                                    else:
+                                        status.update(label="❌ Failed", state="error")
+                                        st.error(msg)
+            elif search_query and not st.session_state.search_results:
+                st.warning("No models found.")
+            
+            elif st.session_state.get("discovered_ollama_models") == []:
+                 st.warning("No models found. Ensure Ollama is running.")
+
 st.title("🤖 AI Nexus")
 st.markdown("Ask one question. Get the combined wisdom of selected AI models, synthesized by your local AI.")
 
@@ -465,6 +606,28 @@ if ask_button and query:
                     "name": custom_provider["name"],
                     "type": "g4f_discovered",
                     "func": make_g4f_fetcher(custom_provider)
+                })
+            elif custom_provider.get("type") == "ollama_discovered":
+                def make_ollama_disc_fetcher(cp):
+                    async def fetcher(q, c):
+                        try:
+                            # Use the stored base_url
+                            url = f"{cp['base_url']}/api/generate"
+                            resp = await c.post(
+                                url,
+                                json={"model": cp["model"], "prompt": q, "stream": False},
+                                timeout=60.0
+                            )
+                            resp.raise_for_status()
+                            return resp.json()["response"]
+                        except Exception as e:
+                            return f"Error ({cp['name']}): {str(e)}"
+                    return fetcher
+
+                active_providers.append({
+                    "name": custom_provider["name"],
+                    "type": "ollama_discovered",
+                    "func": make_ollama_disc_fetcher(custom_provider)
                 })
             else:
                 # Generic OpenAI Compatible
