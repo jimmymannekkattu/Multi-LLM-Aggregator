@@ -15,19 +15,18 @@ async def fetch_g4f(query: str, model: str, provider_name: str):
     Fallback to g4f (Free Web) if API key is missing.
     """
     try:
-        # Map our internal model names to available g4f models
-        # Note: gpt_4 is the most stable free model currently verified
-        g4f_model = g4f.models.gpt_4
+        # Resolve string name to g4f model object
+        if hasattr(g4f.models, model):
+            model_obj = getattr(g4f.models, model)
+        else:
+            # Fallback to gpt_4 if model not found
+            model_obj = g4f.models.gpt_4
         
-        # We use gpt_4 for ALL providers as a fallback because other models (gpt_4o, llama_3)
-        # are currently failing with permission or key errors.
-        # The goal is to provide *some* answer rather than an error.
-
         response = await g4f.ChatCompletion.create_async(
-            model=g4f_model,
+            model=model_obj,
             messages=[{"role": "user", "content": query}],
         )
-        return f"{response}\n\n*(Source: Free Web - {provider_name} via {g4f_model.name})*"
+        return f"{response}\n\n*(Source: Free Web - {provider_name} via {model})*"
     except Exception as e:
         return f"Error ({provider_name} - Free Web): {str(e)}"
 

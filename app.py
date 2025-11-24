@@ -353,29 +353,38 @@ with st.sidebar:
         
         if disc_mode == "Free Web (g4f)":
             st.markdown("### Popular Free Models")
+            
+            if "discovered_g4f_models" not in st.session_state:
+                st.session_state.discovered_g4f_models = []
+
             if st.button("Scan for Models"):
                 with st.spinner("Scanning..."):
-                    models = asyncio.run(get_g4f_models())
-                    for m in models:
-                        col_name, col_act = st.columns([3, 1])
-                        col_name.text(m["display"])
+                    st.session_state.discovered_g4f_models = asyncio.run(get_g4f_models())
+            
+            if st.session_state.discovered_g4f_models:
+                for m in st.session_state.discovered_g4f_models:
+                    col_name, col_act = st.columns([3, 1])
+                    col_name.text(m["display"])
+                    
+                    # Check if already added
+                    is_added = any(p["name"] == m["display"] for p in st.session_state.custom_providers)
+                    
+                    if is_added:
+                        col_act.success("Added")
+                    else:
                         if col_act.button("Test & Add", key=f"add_{m['name']}"):
                             with st.status(f"Verifying {m['name']}...") as status:
                                 success, msg = asyncio.run(verify_model(m['name'], "g4f"))
                                 if success:
                                     status.update(label="✅ Verified!", state="complete")
-                                    # Add to custom providers
                                     new_p = {
                                         "name": m["display"],
                                         "api_key": "",
                                         "base_url": "",
                                         "model": m["name"],
-                                        "template": "Custom" # Handled by generic fetcher if we tweak it, or we need a specific g4f handler
+                                        "template": "Custom",
+                                        "type": "g4f_discovered"
                                     }
-                                    # NOTE: Currently app.py generic fetcher assumes OpenAI format. 
-                                    # We need to handle 'g4f' type in the main loop or wrap it.
-                                    # For now, let's mark it as special type.
-                                    new_p["type"] = "g4f_discovered"
                                     st.session_state.custom_providers.append(new_p)
                                     save_providers(st.session_state.custom_providers)
                                     st.success(f"Added {m['name']}!")

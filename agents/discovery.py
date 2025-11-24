@@ -4,17 +4,12 @@ import asyncio
 
 # Popular free models that are generally reliable
 POPULAR_FREE_MODELS = [
-    {"name": "gpt-4", "provider": "g4f", "display": "GPT-4 (Free)"},
-    {"name": "gpt-3.5-turbo", "provider": "g4f", "display": "GPT-3.5 Turbo (Free)"},
-    {"name": "llama-3-70b-chat", "provider": "g4f", "display": "Llama 3 70B (Free)"},
-    {"name": "mixtral-8x7b", "provider": "g4f", "display": "Mixtral 8x7B (Free)"},
-    {"name": "claude-3-opus", "provider": "g4f", "display": "Claude 3 Opus (Free)"},
-    {"name": "gemini-pro", "provider": "g4f", "display": "Gemini Pro (Free)"},
+    {"name": "gpt_4", "provider": "g4f", "display": "GPT-4 (Free Web)"},
+    # Add others only if verified to work without auth
 ]
 
 async def get_g4f_models():
     """Returns a list of popular free models."""
-    # In the future, we could dynamically scan g4f.models, but for now a curated list is safer
     return POPULAR_FREE_MODELS
 
 async def get_openrouter_models(api_key: str):
@@ -49,10 +44,14 @@ async def verify_model(model_name: str, provider_type: str, api_key: str = None,
     
     try:
         if provider_type == "g4f":
-            # Map string name to g4f model object if possible, or pass string
-            # g4f.ChatCompletion handles strings usually
+            # Resolve string name to g4f model object
+            if hasattr(g4f.models, model_name):
+                model_obj = getattr(g4f.models, model_name)
+            else:
+                return False, f"Model '{model_name}' not found in g4f.models"
+
             response = await g4f.ChatCompletion.create_async(
-                model=model_name,
+                model=model_obj,
                 messages=[{"role": "user", "content": test_query}]
             )
             return True, response
