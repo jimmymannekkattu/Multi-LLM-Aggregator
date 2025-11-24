@@ -584,7 +584,22 @@
             const saved = localStorage.getItem('ainexus-settings');
 
             // Auto-detect API URL
-            const currentHost = window.location.hostname;
+            // Auto-detect API URL
+            function getHostname() {
+                let hostname = 'localhost';
+                try {
+                    if (window.location.hostname) {
+                        hostname = window.location.hostname;
+                    } else if (window.parent && window.parent.location.hostname) {
+                        hostname = window.parent.location.hostname;
+                    }
+                } catch (e) {
+                    console.warn("Could not detect hostname from parent:", e);
+                }
+                return hostname;
+            }
+
+            const currentHost = getHostname();
             const defaultApiUrl = `http://${currentHost}:8000`;
 
             if (saved) {
@@ -602,7 +617,14 @@
                 const isRemote = currentHost !== 'localhost' && currentHost !== '127.0.0.1';
                 const pointsToLocal = savedUrl && (savedUrl.includes('localhost') || savedUrl.includes('127.0.0.1'));
 
-                if (isRemote && pointsToLocal) {
+                // Check for invalid URL (missing hostname)
+                const isInvalid = savedUrl && savedUrl.includes('://:');
+
+                if (isInvalid) {
+                    console.log("Detected invalid saved URL. Resetting to default.");
+                    apiUrl = defaultApiUrl;
+                    showToast('🔄 Fixed invalid server connection');
+                } else if (isRemote && pointsToLocal) {
                     console.log("Detected remote access with localhost settings. Auto-updating API URL.");
                     apiUrl = defaultApiUrl;
                     showToast('🔄 Updated server connection for mobile access');
@@ -774,6 +796,75 @@
             } catch (error) {
                 console.error("Failed to fetch models:", error);
                 renderOfflineModels([]);
+            }
+        }
+
+        // Search Models (Discovery)
+        function searchModels() {
+            const query = document.getElementById('search-query').value.toLowerCase();
+            const container = document.getElementById('discovery-results');
+            container.innerHTML = '';
+
+            if (!query) {
+                container.innerHTML = '<div style="padding: 10px; color: #666;">Please enter a search term.</div>';
+                return;
+            }
+
+            // Combine all known models for search
+            const allModels = [
+                { name: "Free Web (g4f)", type: "free", provider: "g4f" },
+                { name: "ChatGPT (OpenAI)", type: "api", provider: "OpenAI" },
+                { name: "Claude (Anthropic)", type: "api", provider: "Anthropic" },
+                { name: "Gemini (Google)", type: "api", provider: "Google" },
+                { name: "Perplexity", type: "api", provider: "Perplexity" },
+                // Add some popular g4f models for discovery
+                { name: "gpt-4o", type: "free", provider: "g4f" },
+                { name: "llama-3-70b", type: "free", provider: "g4f" },
+                { name: "mixtral-8x7b", type: "free", provider: "g4f" }
+            ];
+
+            const results = allModels.filter(m => m.name.toLowerCase().includes(query));
+
+            if (results.length === 0) {
+                container.innerHTML = '<div style="padding: 10px; color: #666;">No models found.</div>';
+                return;
+            }
+
+            results.forEach(m => {
+                const div = document.createElement('div');
+                div.className = 'model-card';
+                div.innerHTML = `
+                    <div class="model-card-content">
+                        <span class="model-name">
+                            ${m.name}
+                            <span class="model-badge ${m.type === 'free' ? 'badge-free' : 'badge-api'}">
+                                ${m.provider}
+                            </span>
+                        </span>
+                    </div>
+                    <button onclick="addModelFromDiscovery('${m.name}', '${m.type}')" style="padding: 5px 10px; border-radius: 12px; border: 1px solid #ddd; background: white; cursor: pointer;">Add</button>
+                `;
+                container.appendChild(div);
+            });
+        }
+
+        function addModelFromDiscovery(name, type) {
+            // For now, just select it if it's one of the main ones, or show a toast
+            if (selectedOnline.includes(name)) {
+                showToast('✅ Model already selected');
+            } else {
+                // If it's a "custom" g4f model, we might need to handle it differently
+                // But for now, let's just add it to the list if it matches our main ones
+                // Or we can add it to selectedOnline and re-render
+
+                // Check if it's one of the supported main models
+                const supported = ["Free Web (g4f)", "ChatGPT (OpenAI)", "Claude (Anthropic)", "Gemini (Google)", "Perplexity"];
+                if (supported.includes(name)) {
+                    toggleOnlineModel(name);
+                    showToast(`✅ Added ${name}`);
+                } else {
+                    showToast('ℹ️ Custom model support coming soon');
+                }
             }
         }
 

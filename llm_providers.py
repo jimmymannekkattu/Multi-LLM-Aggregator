@@ -19,13 +19,23 @@ async def fetch_g4f(query: str, model: str, provider_name: str):
         if hasattr(g4f.models, model):
             model_obj = getattr(g4f.models, model)
         else:
-            # Fallback to gpt_4 if model not found
-            model_obj = g4f.models.gpt_4
+            # Fallback to default if model not found
+            model_obj = g4f.models.default
         
-        response = await g4f.ChatCompletion.create_async(
-            model=model_obj,
-            messages=[{"role": "user", "content": query}],
-        )
+        try:
+            response = await g4f.ChatCompletion.create_async(
+                model=model_obj,
+                messages=[{"role": "user", "content": query}],
+            )
+        except Exception as e:
+            # If specific model failed (e.g. auth required), try default
+            print(f"⚠️ Model {model} failed: {e}. Falling back to default.")
+            response = await g4f.ChatCompletion.create_async(
+                model=g4f.models.default,
+                messages=[{"role": "user", "content": query}],
+            )
+            model = "default"
+
         return f"{response}\n\n*(Source: Free Web - {provider_name} via {model})*"
     except Exception as e:
         return f"Error ({provider_name} - Free Web): {str(e)}"

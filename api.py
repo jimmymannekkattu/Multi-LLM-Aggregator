@@ -69,7 +69,7 @@ def health_check():
 @app.get("/models")
 async def get_models():
     """Fetch available models (Online & Local Ollama)"""
-    online = ["ChatGPT (OpenAI)", "Claude (Anthropic)", "Gemini (Google)", "Perplexity"]
+    online = ["Free Web (g4f)", "ChatGPT (OpenAI)", "Claude (Anthropic)", "Gemini (Google)", "Perplexity"]
     
     offline = []
     try:

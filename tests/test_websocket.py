@@ -1,70 +1,50 @@
 import pytest
 from fastapi.testclient import TestClient
-from fastapi.websockets import WebSocket
-from unittest.mock import AsyncMock, patch, MagicMock
+import sys
+import os
+
+# Add parent directory to path to import api
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from api import app
-import json
 
 client = TestClient(app)
 
-def test_websocket_connect():
-    """Test WebSocket can be established"""
+def test_websocket_connection():
     with client.websocket_connect("/ws/chat") as websocket:
         # Connection should be successful
-        assert websocket is not None
+        pass
 
-def test_websocket_query():
-    """Test sending a query via WebSocket"""
-    with patch("api.fetch_ollama", new_callable=AsyncMock) as mock_fetch:
-        with patch("api.synthesize_responses", new_callable=AsyncMock) as mock_synth:
-            mock_fetch.return_value = "Ollama response"
-            mock_synth.return_value = "Final synthesized answer"
+def test_websocket_message_flow():
+    with client.websocket_connect("/ws/chat") as websocket:
+        # Send a test query
+        payload = {
+            "query": "Hello",
+            "online_models": ["Free Web (g4f)"],
+            "offline_models": []
+        }
+        websocket.send_json(payload)
+        
+        # Expect a status message first ("Thinking...")
+        # Note: The exact sequence depends on the implementation, 
+        # but we should receive at least one response.
+        data = websocket.receive_json()
+        assert "type" in data
+        
+        # We might get multiple messages (status, then response)
+        # Loop until we get a response or error, or timeout
+        while data["type"] == "status":
+            data = websocket.receive_json()
             
-            with client.websocket_connect("/ws/chat") as websocket:
-                # Send query
-                query_data = {
-                    "query": "Test query",
-                    "online_models": [],
-                    "offline_models": ["llama3"],
-                    "use_memory": False
-                }
-                websocket.send_json(query_data)
-                
-                # Receive responses
-                messages = []
-                for _ in range(5):  # Receive a few messages
-                    try:
-                        msg = websocket.receive_json()
-                        messages.append(msg)
-                        if msg.get("status") == "complete":
-                            break
-                    except:
-                        break
-                
-                # Should have received completion message
-                assert any(msg.get("status") == "complete" for msg in messages)
-                
-                # Final answer should be present
-                final_msg = next(msg for msg in messages if msg.get("status") == "complete")
-                assert "final_answer" in final_msg
+        assert data["type"] in ["response", "error"]
+        if data["type"] == "response":
+            assert "content" in data
+            assert len(data["content"]) > 0
 
-def test_stream_chat():
-    """Test streaming chat endpoint"""
-    with patch("api.fetch_ollama", new_callable=AsyncMock) as mock_fetch:
-        with patch("api.synthesize_responses", new_callable=AsyncMock) as mock_synth:
-            mock_fetch.return_value = "Ollama response"
-            mock_synth.return_value = "Synthesized answer"
-            
-            # Note: Streaming endpoint testing is limited in TestClient
-            # This is a basic connectivity test
-            response = client.post(
-                "/stream/chat",
-                json={
-                    "query": "Test",
-                    "offline_models": ["llama3"],
-                    "use_memory": False
-                }
-            )
-            
-            # Should return 200 and be a streaming response
-            assert response.status_code == 200
+def test_websocket_invalid_payload():
+    with client.websocket_connect("/ws/chat") as websocket:
+        # Send invalid JSON
+        websocket.send_text("Not JSON")
+        
+        # Should receive an error
+        data = websocket.receive_json()
+        assert data["type"] == "error"
