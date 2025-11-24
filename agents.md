@@ -230,24 +230,19 @@ async def get_g4f_models():
     return POPULAR_FREE_MODELS  # gpt-4, llama-3, claude-3, etc.
 
 async def get_openrouter_models(api_key: str):
-    # Fetches model catalog from OpenRouter API
-    response = await client.get("https://openrouter.ai/api/v1/models", ...)
-    # Returns list with: name, context_length, pricing
-
-async def verify_model(model_name: str, provider_type: str, ...):
-    # Tests model availability by sending "Say 'Hello'"
-    # Returns (success: bool, response: str)
-```
-
-**Supported Sources**:
-1.  **Free Web (g4f)**: Popular models available via free web access.
-2.  **OpenRouter**: 100+ premium models accessible via API key.
-
-**Workflow**:
-1.  User selects source (g4f or OpenRouter).
-2.  Discovery agent fetches available models.
-3.  User can test-verify models before adding.
-4.  Verified models are saved to `custom_providers.json` for persistence.
+### 4. Discovery Agent (`agents/discovery.py`)
+*   **Role**: The scout. It constantly looks for new tools and models to add to the fleet.
+*   **Capabilities**:
+    *   **Global Search**: Searches across multiple providers simultaneously (Free Web/g4f and OpenRouter).
+    *   **Unified Discovery**: Scans for both online models and local offline models (Ollama) on the network.
+    *   **Verification**: Automatically tests discovered models ("Handshake") to ensure they are operational before adding them to the active list.
+*   **Workflow**:
+    1.  User initiates a scan or search in the UI.
+    2.  Agent queries `g4f` directory, OpenRouter API, and local Ollama instance.
+    3.  Agent presents a unified list of candidates.
+    4.  User clicks "Test & Add".
+    5.  Agent runs a verification prompt ("Say Hello").
+    6.  If successful, the model is added to the `custom_providers` registry.json` for persistence.
 
 ### 6. Synthesis System (`offline_model.py`)
 
