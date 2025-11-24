@@ -583,7 +583,7 @@
         function loadSettings() {
             const saved = localStorage.getItem('ainexus-settings');
 
-            // Auto-detect API URL if not saved
+            // Auto-detect API URL
             const currentHost = window.location.hostname;
             const defaultApiUrl = `http://${currentHost}:8000`;
 
@@ -593,7 +593,22 @@
                 selectedOffline = settings.selectedOffline || [];
                 networkNodes = settings.networkNodes || [];
                 apiKeys = settings.apiKeys || {};
-                apiUrl = settings.apiUrl || defaultApiUrl;
+
+                // Smart API URL recovery
+                let savedUrl = settings.apiUrl;
+
+                // If we are on a remote device (not localhost) but settings point to localhost,
+                // it's likely a mistake (cached from desktop usage). Update it.
+                const isRemote = currentHost !== 'localhost' && currentHost !== '127.0.0.1';
+                const pointsToLocal = savedUrl && (savedUrl.includes('localhost') || savedUrl.includes('127.0.0.1'));
+
+                if (isRemote && pointsToLocal) {
+                    console.log("Detected remote access with localhost settings. Auto-updating API URL.");
+                    apiUrl = defaultApiUrl;
+                    showToast('🔄 Updated server connection for mobile access');
+                } else {
+                    apiUrl = savedUrl || defaultApiUrl;
+                }
 
                 document.getElementById('openai-key').value = apiKeys.openai || '';
                 document.getElementById('anthropic-key').value = apiKeys.anthropic || '';
