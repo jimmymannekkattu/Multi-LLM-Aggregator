@@ -3,13 +3,14 @@
 
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>AI Nexus Chat</title>
     <style>
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
         }
 
         body {
@@ -28,12 +29,15 @@
             display: flex;
             flex-direction: column;
             box-shadow: 2px 0 10px rgba(0, 0, 0, 0.1);
-            transition: margin-left 0.3s ease;
-            z-index: 100;
+            transition: transform 0.3s ease;
+            z-index: 1000;
+            height: 100%;
         }
 
         .sidebar.hidden {
-            margin-left: -340px;
+            transform: translateX(-100%);
+            margin-left: 0;
+            /* Override previous margin logic */
         }
 
         .sidebar-header {
@@ -90,19 +94,25 @@
             flex: 1;
             overflow-y: auto;
             padding: 16px;
+            -webkit-overflow-scrolling: touch;
         }
 
-        .tab-content::-webkit-scrollbar {
+        /* Scrollbar Styling */
+        ::-webkit-scrollbar {
             width: 6px;
         }
 
-        .tab-content::-webkit-scrollbar-track {
-            background: #1e293b;
+        ::-webkit-scrollbar-track {
+            background: transparent;
         }
 
-        .tab-content::-webkit-scrollbar-thumb {
-            background: #475569;
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
             border-radius: 3px;
+        }
+
+        .sidebar ::-webkit-scrollbar-thumb {
+            background: #475569;
         }
 
         .tab-panel {
@@ -153,10 +163,8 @@
             border: 1px solid transparent;
         }
 
-        .model-card:hover {
-            background: rgba(255, 255, 255, 0.1);
-            border-color: rgba(102, 126, 234, 0.3);
-            transform: translateX(2px);
+        .model-card:active {
+            transform: scale(0.98);
         }
 
         .model-card.selected {
@@ -165,8 +173,8 @@
         }
 
         .model-card input[type="checkbox"] {
-            width: 18px;
-            height: 18px;
+            width: 20px;
+            height: 20px;
             margin-right: 12px;
             cursor: pointer;
             accent-color: #667eea;
@@ -221,25 +229,18 @@
 
         .setting-group input {
             width: 100%;
-            padding: 10px 12px;
+            padding: 12px;
             border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 6px;
+            border-radius: 8px;
             background: rgba(255, 255, 255, 0.05);
             color: white;
             font-size: 14px;
-            transition: all 0.2s;
-        }
-
-        .setting-group input:focus {
-            outline: none;
-            border-color: #667eea;
-            background: rgba(255, 255, 255, 0.08);
         }
 
         .setting-group button {
             width: 100%;
-            padding: 12px;
-            margin-top: 6px;
+            padding: 14px;
+            margin-top: 8px;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
             border: none;
@@ -247,16 +248,10 @@
             cursor: pointer;
             font-size: 14px;
             font-weight: 600;
-            transition: all 0.2s;
-        }
-
-        .setting-group button:hover {
-            transform: translateY(-1px);
-            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
         }
 
         .node-item {
-            padding: 10px 12px;
+            padding: 12px;
             background: rgba(255, 255, 255, 0.05);
             border-radius: 6px;
             margin-bottom: 6px;
@@ -266,295 +261,191 @@
             align-items: center;
         }
 
-        .node-item button {
-            padding: 4px 10px;
-            background: #ef4444;
-            color: white;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 11px;
-            font-weight: 600;
-            transition: all 0.2s;
-        }
-
-        .node-item button:hover {
-            background: #dc2626;
-        }
-
         /* Main Chat Area */
         .main-area {
             flex: 1;
             display: flex;
             flex-direction: column;
             background: #ffffff;
+            position: relative;
+            width: 100%;
         }
 
         .chat-header {
-            padding: 16px 24px;
+            padding: 16px;
             background: white;
             border-bottom: 1px solid #e5e7eb;
             display: flex;
             justify-content: space-between;
             align-items: center;
             box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+            z-index: 10;
         }
 
         .toggle-sidebar {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            border: none;
-            padding: 10px 16px;
+            background: transparent;
+            color: #64748b;
+            border: 1px solid #e2e8f0;
+            padding: 8px 12px;
             border-radius: 8px;
             cursor: pointer;
             font-weight: 600;
-            font-size: 14px;
-            transition: all 0.2s;
-        }
-
-        .toggle-sidebar:hover {
-            transform: scale(1.05);
-            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+            font-size: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
 
         .chat-header h1 {
-            font-size: 20px;
+            font-size: 18px;
             font-weight: 700;
             color: #1e293b;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            margin: 0 10px;
         }
 
         .model-count {
             background: #f1f5f9;
-            padding: 6px 14px;
+            padding: 6px 10px;
             border-radius: 20px;
-            font-size: 13px;
+            font-size: 12px;
             font-weight: 600;
             color: #475569;
-        }
-
-        .model-count.active {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
+            white-space: nowrap;
         }
 
         .messages {
             flex: 1;
             overflow-y: auto;
-            padding: 24px;
+            padding: 16px;
             background: #f8fafc;
-        }
-
-        .messages::-webkit-scrollbar {
-            width: 8px;
-        }
-
-        .messages::-webkit-scrollbar-track {
-            background: #f1f5f9;
-        }
-
-        .messages::-webkit-scrollbar-thumb {
-            background: #cbd5e1;
-            border-radius: 4px;
+            -webkit-overflow-scrolling: touch;
         }
 
         .message {
             margin-bottom: 16px;
-            padding: 14px 16px;
-            border-radius: 12px;
+            padding: 12px 16px;
+            border-radius: 16px;
             animation: fadeIn 0.3s ease;
-            max-width: 75%;
-            line-height: 1.6;
+            max-width: 85%;
+            line-height: 1.5;
             white-space: pre-wrap;
             word-wrap: break-word;
-        }
-
-        .message strong {
-            font-weight: 700;
-        }
-
-        .message br {
-            display: block;
-            margin: 8px 0;
-            content: "";
-        }
-
-        @keyframes fadeIn {
-            from {
-                opacity: 0;
-                transform: translateY(10px);
-            }
-
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
+            font-size: 15px;
         }
 
         .message.user {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
             margin-left: auto;
-            box-shadow: 0 2px 8px rgba(102, 126, 234, 0.2);
+            border-bottom-right-radius: 4px;
         }
 
         .message.ai {
             background: white;
             border: 1px solid #e5e7eb;
             margin-right: auto;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
-        }
-
-        .message.status {
-            background: #fef3c7;
-            text-align: center;
-            font-size: 13px;
-            color: #92400e;
-            max-width: none;
-            margin: 0 auto 16px;
-            transition: all 0.2s ease;
-        }
-
-        .message.error {
-            background: #fee2e2;
-            color: #991b1b;
-            border: 1px solid #fecaca;
-            max-width: none;
-        }
-
-        /* Toast Notifications */
-        .toast {
-            position: fixed;
-            bottom: 24px;
-            right: 24px;
-            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-            color: white;
-            padding: 14px 20px;
-            border-radius: 12px;
-            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
-            font-size: 14px;
-            font-weight: 600;
-            z-index: 1000;
-            animation: toastSlideIn 0.3s ease, toastSlideOut 0.3s ease 2.7s;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-
-        @keyframes toastSlideIn {
-            from {
-                transform: translateX(400px);
-                opacity: 0;
-            }
-
-            to {
-                transform: translateX(0);
-                opacity: 1;
-            }
-        }
-
-        @keyframes toastSlideOut {
-            from {
-                transform: translateX(0);
-                opacity: 1;
-            }
-
-            to {
-                transform: translateX(400px);
-                opacity: 0;
-            }
+            border-bottom-left-radius: 4px;
         }
 
         .input-area {
-            padding: 20px 24px;
+            padding: 16px;
             background: white;
             border-top: 1px solid #e5e7eb;
             display: flex;
-            gap: 12px;
+            gap: 10px;
+            position: sticky;
+            bottom: 0;
         }
 
         input#query-input {
             flex: 1;
-            padding: 14px 18px;
+            padding: 12px 16px;
             border: 2px solid #e5e7eb;
-            border-radius: 12px;
-            font-size: 15px;
+            border-radius: 24px;
+            font-size: 16px;
+            /* Prevents zoom on iOS */
             transition: all 0.2s;
             font-family: inherit;
         }
 
-        input#query-input:focus {
-            outline: none;
-            border-color: #667eea;
-            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
-        }
-
         button#send-btn {
-            padding: 14px 28px;
+            padding: 12px 20px;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
             border: none;
-            border-radius: 12px;
+            border-radius: 24px;
             cursor: pointer;
             font-weight: 700;
-            font-size: 15px;
-            transition: all 0.2s;
+            font-size: 16px;
         }
 
-        button#send-btn:hover:not(:disabled) {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 16px rgba(102, 126, 234, 0.4);
+        /* Mobile Overlay */
+        .sidebar-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 900;
+            opacity: 0;
+            transition: opacity 0.3s ease;
         }
 
-        button#send-btn:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
+        .sidebar-overlay.active {
+            display: block;
+            opacity: 1;
         }
 
-        /* Search */
-        .search-box {
-            display: flex;
-            gap: 8px;
-            margin-bottom: 16px;
-        }
+        /* Mobile Responsive Styles */
+        @media (max-width: 768px) {
+            .sidebar {
+                position: fixed;
+                top: 0;
+                left: 0;
+                height: 100%;
+                width: 280px;
+                transform: translateX(-100%);
+            }
 
-        .search-box input {
-            flex: 1;
-            padding: 10px 14px;
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 8px;
-            background: rgba(255, 255, 255, 0.05);
-            color: white;
-            font-size: 14px;
-        }
+            .sidebar.active {
+                transform: translateX(0);
+            }
 
-        .search-box button {
-            padding: 10px 20px;
-            background: #667eea;
-            color: white;
-            border: none;
-            border-radius: 8px;
-            cursor: pointer;
-            font-weight: 600;
-            font-size: 14px;
-        }
+            /* Reset the hidden class logic for mobile since we use .active */
+            .sidebar.hidden {
+                transform: translateX(-100%);
+            }
 
-        .empty-state {
-            text-align: center;
-            padding: 40px 20px;
-            color: #94a3b8;
-        }
+            .main-area {
+                width: 100%;
+            }
 
-        .empty-state-icon {
-            font-size: 48px;
-            margin-bottom: 12px;
-            opacity: 0.5;
+            .message {
+                max-width: 90%;
+            }
+
+            .toast {
+                left: 16px;
+                right: 16px;
+                bottom: 80px;
+                /* Above input area */
+                justify-content: center;
+            }
         }
     </style>
 </head>
 
 <body>
+    <!-- Mobile Overlay -->
+    <div class="sidebar-overlay" id="sidebar-overlay" onclick="closeSidebar()"></div>
+
     <!-- Sidebar -->
-    <div class="sidebar" id="sidebar">
+    <div class="sidebar hidden" id="sidebar">
         <div class="sidebar-header">
             <h2>🤖 AI Nexus</h2>
             <div class="status" id="sidebar-status">Connecting...</div>
@@ -657,7 +548,7 @@
     <!-- Main Chat Area -->
     <div class="main-area">
         <div class="chat-header">
-            <button class="toggle-sidebar" onclick="toggleSidebar()">☰ Menu</button>
+            <button class="toggle-sidebar" onclick="toggleSidebar()">☰</button>
             <h1>AI Nexus Chat</h1>
             <div class="model-count" id="model-count">0 models</div>
         </div>
@@ -666,7 +557,7 @@
 
         <div class="input-area">
             <input type="text" id="query-input" placeholder="Ask me anything..." disabled>
-            <button id="send-btn" onclick="sendQuery()" disabled>Send →</button>
+            <button id="send-btn" onclick="sendQuery()" disabled>Send</button>
         </div>
     </div>
 
@@ -752,7 +643,24 @@
         }
 
         function toggleSidebar() {
-            document.getElementById('sidebar').classList.toggle('hidden');
+            const sidebar = document.getElementById('sidebar');
+            const overlay = document.getElementById('sidebar-overlay');
+
+            // Check if mobile
+            if (window.innerWidth <= 768) {
+                sidebar.classList.toggle('active');
+                overlay.classList.toggle('active');
+            } else {
+                sidebar.classList.toggle('hidden');
+            }
+        }
+
+        function closeSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            const overlay = document.getElementById('sidebar-overlay');
+
+            sidebar.classList.remove('active');
+            overlay.classList.remove('active');
         }
 
         // WebSocket
@@ -798,234 +706,265 @@
         }
 
         function renderOnlineModels() {
+            const container = document.getElementById('online-models');
+            container.innerHTML = '';
+
             const models = [
-                { name: "Free Web (g4f)", free: true },
-                { name: "ChatGPT (OpenAI)", free: false },
-                { name: "Claude (Anthropic)", free: false },
-                { name: "Gemini (Google)", free: false },
-                { name: "Perplexity", free: false }
+                { name: "Free Web (g4f)", type: "free" },
+                { name: "ChatGPT (OpenAI)", type: "api" },
+                { name: "Claude (Anthropic)", type: "api" },
+                { name: "Gemini (Google)", type: "api" },
+                { name: "Perplexity", type: "api" }
             ];
 
-            const html = models.map(model => {
-                const isSelected = selectedOnline.includes(model.name);
-                const badge = model.free ?
-                    '<span class="model-badge badge-free">FREE</span>' :
-                    '<span class="model-badge badge-api">API KEY</span>';
+            models.forEach(m => {
+                const div = document.createElement('div');
+                div.className = `model-card ${selectedOnline.includes(m.name) ? 'selected' : ''}`;
+                div.onclick = (e) => {
+                    if (e.target.type !== 'checkbox') {
+                        const checkbox = div.querySelector('input');
+                        checkbox.checked = !checkbox.checked;
+                        toggleOnlineModel(m.name);
+                    }
+                };
 
-                return `
-                    <div class="model-card ${isSelected ? 'selected' : ''}" onclick="toggleModelCard(event, 'online', '${model.name}')">
-                        <input type="checkbox" 
-                               id="online-${model.name}" 
-                               ${isSelected ? 'checked' : ''}
-                               onclick="event.stopPropagation(); toggleModel('online', '${model.name}')">
-                        <div class="model-card-content">
-                            <div class="model-name">${model.name}${badge}</div>
-                        </div>
+                div.innerHTML = `
+                    <input type="checkbox" ${selectedOnline.includes(m.name) ? 'checked' : ''} 
+                        onclick="event.stopPropagation(); toggleOnlineModel('${m.name}')">
+                    <div class="model-card-content">
+                        <span class="model-name">
+                            ${m.name}
+                            <span class="model-badge ${m.type === 'free' ? 'badge-free' : 'badge-api'}">
+                                ${m.type === 'free' ? 'FREE' : 'API KEY'}
+                            </span>
+                        </span>
                     </div>
                 `;
-            }).join('');
-
-            document.getElementById('online-models').innerHTML = html;
+                container.appendChild(div);
+            });
             updateModelCount();
         }
 
         function renderOfflineModels(models) {
             const container = document.getElementById('offline-models');
+            container.innerHTML = '';
+
             if (models.length === 0) {
-                container.innerHTML = `
-                    <div class="empty-state">
-                        <div class="empty-state-icon">💻</div>
-                        <div style="font-size: 12px;">No Ollama models found</div>
-                    </div>
-                `;
+                container.innerHTML = '<div style="font-size: 12px; color: #94a3b8; padding: 10px;">No local models found. Is Ollama running?</div>';
                 return;
             }
 
+            // Auto-select first if none selected
             if (selectedOffline.length === 0 && models.length > 0) {
-                selectedOffline = [models[0]];
-                saveSettings();
+                // Optional: selectedOffline.push(models[0].name);
             }
 
-            const html = models.map(model => {
-                const isSelected = selectedOffline.includes(model);
-                return `
-                    <div class="model-card ${isSelected ? 'selected' : ''}" onclick="toggleModelCard(event, 'offline', '${model}')">
-                        <input type="checkbox"
-                               id="offline-${model}"
-                               ${isSelected ? 'checked' : ''}
-                               onclick="event.stopPropagation(); toggleModel('offline', '${model}')">
-                        <div class="model-card-content">
-                            <div class="model-name">${model}</div>
-                        </div>
+            models.forEach(m => {
+                const div = document.createElement('div');
+                div.className = `model-card ${selectedOffline.includes(m.name) ? 'selected' : ''}`;
+                div.onclick = (e) => {
+                    if (e.target.type !== 'checkbox') {
+                        const checkbox = div.querySelector('input');
+                        checkbox.checked = !checkbox.checked;
+                        toggleOfflineModel(m.name);
+                    }
+                };
+
+                div.innerHTML = `
+                    <input type="checkbox" ${selectedOffline.includes(m.name) ? 'checked' : ''} 
+                        onclick="event.stopPropagation(); toggleOfflineModel('${m.name}')">
+                    <div class="model-card-content">
+                        <span class="model-name">
+                            ${m.name}
+                            <span class="model-badge badge-free">LOCAL</span>
+                        </span>
+                        <span style="font-size: 11px; color: #94a3b8;">${(m.size / 1024 / 1024 / 1024).toFixed(1)} GB</span>
                     </div>
                 `;
-            }).join('');
-
-            container.innerHTML = html;
+                container.appendChild(div);
+            });
             updateModelCount();
         }
 
-        function toggleModelCard(event, type, name) {
-            const checkbox = event.currentTarget.querySelector('input[type="checkbox"]');
-            checkbox.checked = !checkbox.checked;
-            toggleModel(type, name);
+        function renderNodes() {
+            const list = document.getElementById('nodes-list');
+            const container = document.getElementById('network-models');
+
+            list.innerHTML = '';
+            container.innerHTML = '';
+
+            if (networkNodes.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-state-icon">📡</div>
+                        <div style="font-size: 12px;">No network nodes configured</div>
+                    </div>`;
+            }
+
+            networkNodes.forEach((node, index) => {
+                // Settings List
+                const item = document.createElement('div');
+                item.className = 'node-item';
+                item.innerHTML = `
+                    <span>${node.name}</span>
+                    <button onclick="removeNode(${index})">Remove</button>
+                `;
+                list.appendChild(item);
+
+                // Models List (Placeholder for now, would need to fetch from node)
+                const nodeCard = document.createElement('div');
+                nodeCard.className = 'model-card';
+                nodeCard.innerHTML = `
+                    <div class="model-card-content">
+                        <span class="model-name">Models on ${node.name}</span>
+                        <span style="font-size: 11px; color: #94a3b8;">${node.url}</span>
+                    </div>
+                `;
+                container.appendChild(nodeCard);
+            });
         }
 
-        function toggleModel(type, name) {
-            if (type === 'online') {
-                const index = selectedOnline.indexOf(name);
-                if (index > -1) selectedOnline.splice(index, 1);
-                else selectedOnline.push(name);
+        // Toggles
+        function toggleOnlineModel(name) {
+            if (selectedOnline.includes(name)) {
+                selectedOnline = selectedOnline.filter(m => m !== name);
             } else {
-                const index = selectedOffline.indexOf(name);
-                if (index > -1) selectedOffline.splice(index, 1);
-                else selectedOffline.push(name);
+                selectedOnline.push(name);
             }
+            renderOnlineModels();
+            saveSettings();
+        }
+
+        function toggleOfflineModel(name) {
+            if (selectedOffline.includes(name)) {
+                selectedOffline = selectedOffline.filter(m => m !== name);
+            } else {
+                selectedOffline.push(name);
+            }
+            renderOfflineModels(document.querySelectorAll('#offline-models .model-card').length ?
+                Array.from(document.querySelectorAll('#offline-models .model-name')).map(el => ({ name: el.innerText.split('\n')[0], size: 0 }))
+                : []); // Re-render to update styling
+
+            // Hacky re-render to update styling, ideally we keep state of models list
+            const cards = document.querySelectorAll('#offline-models .model-card');
+            cards.forEach(card => {
+                const modelName = card.querySelector('.model-name').innerText.split('\n')[0];
+                if (selectedOffline.includes(modelName)) {
+                    card.classList.add('selected');
+                    card.querySelector('input').checked = true;
+                } else {
+                    card.classList.remove('selected');
+                    card.querySelector('input').checked = false;
+                }
+            });
             updateModelCount();
             saveSettings();
-            renderOnlineModels();
-            fetchModels();
         }
 
         function updateModelCount() {
-            const total = selectedOnline.length + selectedOffline.length;
-            const countEl = document.getElementById('model-count');
-            countEl.textContent = total === 1 ? '1 model' : `${total} models`;
-            countEl.className = total > 0 ? 'model-count active' : 'model-count';
+            const count = selectedOnline.length + selectedOffline.length;
+            const el = document.getElementById('model-count');
+            el.textContent = `${count} model${count !== 1 ? 's' : ''}`;
+            if (count > 0) el.classList.add('active');
+            else el.classList.remove('active');
         }
 
-        // Nodes
+        // Actions
         function addNode() {
             const name = document.getElementById('node-name').value;
             const url = document.getElementById('node-url').value;
-            if (!name || !url) return;
 
-            networkNodes.push({ name, url });
-            document.getElementById('node-name').value = '';
-            document.getElementById('node-url').value = '';
-            renderNodes();
-            saveSettings();
+            if (name && url) {
+                networkNodes.push({ name, url });
+                document.getElementById('node-name').value = '';
+                document.getElementById('node-url').value = '';
+                saveSettings();
+                renderNodes();
+            }
         }
 
         function removeNode(index) {
             networkNodes.splice(index, 1);
-            renderNodes();
             saveSettings();
+            renderNodes();
         }
 
-        function renderNodes() {
-            const container = document.getElementById('nodes-list');
-            if (networkNodes.length === 0) {
-                container.innerHTML = '';
+        // Chat Logic
+        function sendQuery() {
+            const input = document.getElementById('query-input');
+            const query = input.value.trim();
+
+            if (!query) return;
+
+            if (selectedOnline.length === 0 && selectedOffline.length === 0) {
+                showToast('⚠️ Please select at least one model first!');
+                // Open sidebar on mobile if no models selected
+                if (window.innerWidth <= 768) toggleSidebar();
                 return;
             }
 
-            container.innerHTML = networkNodes.map((node, i) => `
-                <div class="node-item">
-                    <span><strong>${node.name}</strong><br><small style="opacity:0.7">${node.url}</small></span>
-                    <button onclick="removeNode(${i})">Remove</button>
-                </div>
-            `).join('');
-        }
-
-        // Search
-        function searchModels() {
-            const query = document.getElementById('search-query').value;
-            if (!query) return;
-
-            document.getElementById('search-results').innerHTML = '<div class="help-text">🔍 Search feature coming soon!</div>';
-        }
-
-        // Chat
-        let currentStatusMessage = null;
-
-        function handleResponse(data) {
-            if (data.status === 'processing' || data.status === 'querying' || data.status === 'synthesizing') {
-                // Update or create a single status message
-                const statusText = data.status === 'processing' ? '⏳ ' + data.message :
-                    data.status === 'querying' ? '🔍 Querying ' + data.model + '...' :
-                        '🧠 ' + data.message;
-
-                if (!currentStatusMessage) {
-                    currentStatusMessage = document.createElement('div');
-                    currentStatusMessage.className = 'message status';
-                    document.getElementById('messages').appendChild(currentStatusMessage);
-                }
-
-                currentStatusMessage.textContent = statusText;
-                document.getElementById('messages').scrollTop = document.getElementById('messages').scrollHeight;
-
-            } else if (data.status === 'complete') {
-                // Remove status message and show final answer
-                if (currentStatusMessage) {
-                    currentStatusMessage.remove();
-                    currentStatusMessage = null;
-                }
-                addMessage(data.final_answer, 'ai');
-                isProcessing = false;
-                document.getElementById('send-btn').disabled = false;
-                document.getElementById('query-input').disabled = false;
-
-            } else if (data.status === 'error') {
-                // Remove status message and show error
-                if (currentStatusMessage) {
-                    currentStatusMessage.remove();
-                    currentStatusMessage = null;
-                }
-                addMessage('❌ ' + data.error, 'error');
-                isProcessing = false;
-                document.getElementById('send-btn').disabled = false;
-                document.getElementById('query-input').disabled = false;
-            }
-        }
-
-        function sendQuery() {
-            const query = document.getElementById('query-input').value.trim();
-            if (!query || isProcessing) return;
-
             addMessage(query, 'user');
+            input.value = '';
+
+            // Status message
+            const statusId = 'status-' + Date.now();
+            addMessage('Thinking...', 'status', statusId);
 
             ws.send(JSON.stringify({
                 query: query,
                 online_models: selectedOnline,
-                offline_models: selectedOffline,
-                use_memory: true
+                offline_models: selectedOffline
             }));
-
-            document.getElementById('query-input').value = '';
-            isProcessing = true;
-            document.getElementById('send-btn').disabled = true;
         }
 
-        function addMessage(text, type) {
-            const div = document.createElement('div');
-            div.className = 'message ' + type;
+        // Handle Enter key
+        document.getElementById('query-input').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') sendQuery();
+        });
 
-            // Format text with basic markdown support
+        function addMessage(text, type, id = null) {
+            const container = document.getElementById('messages');
+            const div = document.createElement('div');
+            div.className = `message ${type}`;
+            if (id) div.id = id;
+
+            // Format text (simple markdown-like)
             let formatted = text
-                // Bold text
                 .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-                // Line breaks
-                .replace(/\n/g, '<br>')
-                // Numbered lists
-                .replace(/^(\d+)\.\s+(.+)$/gm, '<div style="margin-left: 20px;">$1. $2</div>')
-                // Bullet points
-                .replace(/^[-•]\s+(.+)$/gm, '<div style="margin-left: 20px;">• $1</div>');
+                .replace(/\n/g, '<br>');
 
             div.innerHTML = formatted;
-            document.getElementById('messages').appendChild(div);
-            document.getElementById('messages').scrollTop = document.getElementById('messages').scrollHeight;
+            container.appendChild(div);
+            container.scrollTop = container.scrollHeight;
+        }
+
+        function handleResponse(data) {
+            // Remove status message if it exists
+            const statusMsgs = document.querySelectorAll('.message.status');
+            statusMsgs.forEach(el => el.remove());
+
+            if (data.type === 'status') {
+                // Update status (optional, maybe a small indicator)
+                // For now we just show the final result or errors
+            } else if (data.type === 'response') {
+                const source = data.model ? `\n\n<small style="color: #64748b">via ${data.model}</small>` : '';
+                addMessage(data.content + source, 'ai');
+            } else if (data.type === 'error') {
+                addMessage(data.content, 'error');
+            }
         }
 
         // Init
-        document.getElementById('query-input').addEventListener('keypress', (e) => {
-            if (e.key === 'Enter' && !isProcessing) sendQuery();
-        });
-
         window.onload = () => {
             loadSettings();
-            renderOnlineModels();
             connect();
+
+            // Initial sidebar state for desktop
+            if (window.innerWidth > 768) {
+                document.getElementById('sidebar').classList.remove('hidden');
+            } else {
+                document.getElementById('sidebar').classList.add('hidden');
+            }
         };
     </script>
 </body>
