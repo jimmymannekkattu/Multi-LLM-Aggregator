@@ -1,582 +1,625 @@
-# Agents Documentation
+# 🧠 AI Nexus - Technical Architecture
 
-This document provides detailed technical documentation for the AI Nexus agent system.
+> **Developer guide to understanding how AI Nexus works under the hood**
 
-## Overview
+---
 
-The AI Nexus uses a modular architecture with intelligent fallback systems to ensure the application works in various environments (local, cloud, with/without API keys).
+## 📖 Table of Contents
+
+1. [System Overview](#system-overview)
+2. [Architecture Diagram](#architecture-diagram)
+3. [Core Components](#core-components)
+4. [API Reference](#api-reference)
+5. [Data Flow](#data-flow)
+6. [Provider System](#provider-system)
+7. [Memory Agent](#memory-agent)
+8. [Mobile App](#mobile-app)
+9. [Testing](#testing)
+
+---
+
+## System Overview
+
+AI Nexus is a **multi-AI aggregation platform** that:
+- Queries multiple AI providers in parallel
+- Synthesizes responses into a coherent answer
+- Provides memory/learning capabilities
+- Supports offline and distributed processing
+
+**Key Design Principles:**
+- ✅ **Fallback-first**: Works without API keys (uses g4f)
+- ✅ **Async-native**: All I/O operations are asynchronous
+- ✅ **Modular**: Easy to add new providers
+- ✅ **Type-safe**: Uses Pydantic models
+
+---
 
 ## Architecture Diagram
 
 ```
-┌───────────────────────────┐      ┌────────────────────────────┐
-│      Mobile App           │      │      Desktop App           │
-│    (React Native)         │      │      (Streamlit)           │
-└─────────────┬─────────────┘      └─────────────┬──────────────┘
-              │                                  │
-              ▼                                  ▼
-┌───────────────────────────────────────────────────────────────┐
-│                       API Layer                               │
-│             (api.py - FastAPI / app.py - Streamlit)           │
-└─────────────┬──────────────────────────────────┬──────────────┘
-              │                                  │
-              ▼                                  ▼
-┌───────────────────────────┐       ┌────────────────────────────┐
-│    Query Orchestrator     │       │      Memory Agent          │
-│   (llm_providers.py)      │◄─────►│      (memory.py)           │
-└─────────────┬─────────────┘       │   (ChromaDB + Embeddings)  │
-              │                     └────────────────────────────┘
-│  │ Online (OpenAI/g4f) │  │    │  ┌──────────────────────┐  │
-│  └─────────────────────┘  │    │  │ Local Synthesizer    │  │
-│  ┌─────────────────────┐  │    │  └──────────────────────┘  │
-│  │ Network Nodes (IPs) │  │    │  ┌──────────────────────┐  │
-│  └─────────────────────┘  │    │  │ Remote Synthesizer   │  │
-└───────────────────────────┘    │  └──────────────────────┘  │
-                                 └────────────────────────────┘
+┌─────────────────────────────────────────────────────────────┐
+│                     USER INTERFACES                         │
+│  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌─────────────┐ │
+│  │ Desktop  │  │ Web Chat │  │ Mobile   │  │  REST API   │ │
+│  │(Streamlit│  │  (HTML)  │  │  (RN)    │  │  Clients    │ │
+│  └─────┬────┘  └─────┬────┘  └─────┬────┘  └─────┬───────┘ │
+└────────┼─────────────┼──────────────┼──────────────┼─────────┘
+         │             │              │              │
+         └─────────────┴──────────────┴──────────────┘
+                              │
+         ┌────────────────────┴────────────────────┐
+         │         API LAYER (FastAPI)             │
+         │  /chat, /ws/chat, /stream/chat, /docs   │
+         └────────────┬────────────────────────────┘
+                      │
+         ┌────────────┴────────────────────────────┐
+         │      QUERY ORCHESTRATOR                 │
+         │       (llm_providers.py)                │
+         └──┬──────────┬──────────┬─────────────┬──┘
+            │          │          │             │
+   ┌────────┴──┐  ┌───┴────┐ ┌───┴────┐   ┌───┴────────┐
+   │ OpenAI    │  │ g4f    │ │ Ollama │   │ Anthropic  │
+   │ Claude    │  │(Free)  │ │(Local) │   │ Google     │
+   └───────────┘  └────────┘ └────────┘   └────────────┘
+                      │
+         ┌────────────┴────────────────────────────┐
+         │      SYNTHESIS ENGINE                   │
+         │      (offline_model.py)                 │
+         │  Ollama → OpenAI → g4f (fallbacks)      │
+         └────────────┬────────────────────────────┘
+                      │
+         ┌────────────┴────────────────────────────┐
+         │         MEMORY AGENT                    │
+         │    (ChromaDB + Embeddings)              │
+         │  Stores Q&A, Enables RAG, Export Data   │
+         └─────────────────────────────────────────┘
 ```
+
+---
 
 ## Core Components
 
 ### 1. Main Application (`app.py`)
 
-**Purpose**: Orchestrates the entire query and synthesis flow.
+**Purpose**: Streamlit-based desktop interface
 
-**Key Functions**:
-- `run_process()`: Async function that coordinates querying and synthesis
-  - Queries all LLM providers
-  - Passes responses to synthesis
-  - Handles errors gracefully
-
-**UI Components**:
-- Question input area
-- "Ask the Swarm" button
-- Status indicators
-- Final answer display (highlighted card)
-- Individual provider responses (4-panel grid)
-
-**Flow**:
-```python
-User Input → get_all_responses() → synthesize_responses() → Display
-```
-
-**Flow**:
-```python
-User Input → get_all_responses() → synthesize_responses() → Display
-```
-
-### 2. API Layer (`api.py`)
-
-**Purpose**: Exposes the core logic to external clients (Mobile App).
-
-**Technology**: FastAPI + Uvicorn.
-
-**Key Endpoints**:
-
-#### `POST /chat`
-- **Description**: Unified entry point for queries.
-- **Request Body**:
-  ```json
-  {
-    "query": "What is quantum computing?",
-    "online_models": ["ChatGPT (OpenAI)", "Claude (Anthropic)"],
-    "offline_models": ["llama3"],
-    "use_memory": true,
-    "synthesizer_model": "llama3"
-  }
-  ```
-- **Response**:
-  ```json
-  {
-    "final_answer": "Quantum computing is...",
-    "individual_responses": {
-        "ChatGPT": "...",
-        "Claude": "..."
-    }
-  }
-  ```
-
-#### `GET /history`
-- **Description**: Retrieves full chat history from the Memory Agent (ChromaDB).
-- **Response**: List of past queries and answers, sorted by newest first.
-
-#### `GET /models`
-- **Description**: Lists available models.
-- **Response**:
-  ```json
-  {
-    "online": ["ChatGPT (OpenAI)", ...],
-    "offline": ["llama3", "mistral"]
-  }
-  ```
-
-### 3. Mobile App Architecture (`mobile/`)
-
-**Purpose**: A React Native application that serves as a remote interface for the AI Nexus system.
-
-**Tech Stack**: React Native (Expo), Async Storage.
-
-**Key Components**:
-- **Chat Interface**: Real-time chat with the swarm.
-- **Settings**:
-  - **Server URL**: Configurable connection to the PC (e.g., `http://192.168.1.5:8000`).
-  - **Model Selection**: Toggle online and offline models remotely.
-  - **QR Scanner**: Quickly connect to the desktop app by scanning the QR code.
-- **History View**: Browse past conversations synced from the central memory.
-
-**State Management**:
-- Uses `useState` for local UI state.
-- Uses `AsyncStorage` to persist the Server URL.
-
-
-### 3. LLM Provider System (`llm_providers.py`)
-
-**Purpose**: Manages connections to different LLM providers with intelligent fallbacks.
-
-#### Provider Functions
-
-Each provider (OpenAI, Anthropic, Gemini, Perplexity) has its own function:
+**Key Functions:**
 
 ```python
-async def fetch_openai(query: str, client: httpx.AsyncClient):
-    api_key = os.getenv("OPENAI_API_KEY")
-    if not api_key:
-        return await fetch_g4f(query, "gpt-4o", "ChatGPT")
-    # ... official API call
-```
-
-**Fallback Logic**:
-1. Check for API key in environment
-2. If key exists → Use official API
-3. If key missing → Use `fetch_g4f()` for free web access
-
-#### Free Web Fallback (`fetch_g4f`)
-
-**Purpose**: Provides free access to LLMs without API keys.
-
-**Technology**: Uses [g4f](https://github.com/xtekky/gpt4free) library
-
-**Implementation**:
-```python
-async def fetch_g4f(query: str, model: str, provider_name: str):
-    g4f_model = g4f.models.gpt_4  # Most stable model
-    response = await g4f.ChatCompletion.create_async(
-        model=g4f_model,
-        messages=[{"role": "user", "content": query}],
-    )
-    return f"{response}\n\n*(Source: Free Web - {provider_name} via {g4f_model.name})*"
-```
-
-**Model Selection**:
-- Currently uses `gpt_4` for all providers (most stable)
-- Tested alternatives: `gpt_4o` (permission errors), `llama_3_70b` (requires keys)
-
-#### Orchestrator (`get_all_responses`)
-
-**Purpose**: Queries all providers concurrently.
-
-```python
-async def get_all_responses(query: str):
-    async with httpx.AsyncClient() as client:
-        results = await asyncio.gather(
-            fetch_openai(query, client),
-            fetch_anthropic(query, client),
-            fetch_gemini(query, client),
-            fetch_perplexity(query, client)
-        )
-    return {
-        "ChatGPT": results[0],
-        "Claude": results[1],
-        "Gemini": results[2],
-        "Perplexity": results[3]
-    }
-```
-
-**Benefits**:
-- Concurrent execution (faster)
-- Automatic error handling per provider
-- Returns all results even if some fail
-
-### 3. Memory Agent (`memory.py`)
-
-**Purpose**: Implements Knowledge Distillation by storing and retrieving expert answers.
-
-**Technology**:
-- **Vector DB**: ChromaDB (local persistence)
-- **Embeddings**: `all-MiniLM-L6-v2` (via `sentence-transformers`)
-
-**Functions**:
-- `add_to_memory(query, answer)`: Embeds and saves Q&A pairs.
-- `retrieve_context(query)`: Finds semantically similar past Q&A pairs.
-- `export_dataset()`: Dumps memory to JSONL for fine-tuning.
-
-**Workflow**:
-1. **Learning**: When Online models answer, the result is saved to memory.
-2. **Recall**: When a new query arrives, relevant memory is retrieved.
-3. **Distillation**: The Offline model receives this memory as context, allowing it to answer "expertly" without external help.
-
-**Key Constraints**:
-- Maximum of 10 relevant context entries.
-- Uses semantic similarity search via `embeddings.query()`.
-
-### 5. Discovery Agent (`agents/discovery.py`)
-
-**Purpose**: Enables dynamic model discovery and verification, allowing users to find and add new models to their fleet.
-
-**Key Functions**:
-
-```python
-async def get_g4f_models():
-    # Returns curated list of popular free models
-    return POPULAR_FREE_MODELS  # gpt-4, llama-3, claude-3, etc.
-
-async def get_openrouter_models(api_key: str):
-### 4. Discovery Agent (`agents/discovery.py`)
-*   **Role**: The scout. It constantly looks for new tools and models to add to the fleet.
-*   **Capabilities**:
-    *   **Global Search**: Searches across multiple providers simultaneously (Free Web/g4f and OpenRouter).
-    *   **Unified Discovery**: Scans for both online models and local offline models (Ollama) on the network.
-    *   **Verification**: Automatically tests discovered models ("Handshake") to ensure they are operational before adding them to the active list.
-*   **Workflow**:
-    1.  User initiates a scan or search in the UI.
-    2.  Agent queries `g4f` directory, OpenRouter API, and local Ollama instance.
-    3.  Agent presents a unified list of candidates.
-    4.  User clicks "Test & Add".
-    5.  Agent runs a verification prompt ("Say Hello").
-    6.  If successful, the model is added to the `custom_providers` registry.json` for persistence.
-
-### 6. Synthesis System (`offline_model.py`)
-
-**Purpose**: Combines multiple LLM responses into a single, coherent answer.
-
-#### Synthesis Flow
-
-```
-┌─────────────────┐
-│ Try Ollama      │ ← Fastest, completely free & offline
-│ (Local)         │
-└────────┬────────┘
-         │ Fails
-         ▼
-┌─────────────────┐
-│ Try OpenAI API  │ ← Best quality, requires key
-│ (Cloud)         │
-└────────┬────────┘
-         │ Fails
-         ▼
-┌─────────────────┐
-│ Try g4f         │ ← Free fallback, works always
-│ (Free Web)      │
-└─────────────────┘
-```
-
-#### Implementation
-
-```python
-async def synthesize_responses(query: str, responses: dict):
-    # Build context from all responses
-    context_text = ""
-    for provider, response in responses.items():
-        if not response.startswith("Error"):
-            context_text += f"\n\n--- {provider} Response ---\n{response}"
-    
-    # Create synthesis prompt
-    prompt = f"""
-    User Question: "{query}"
-    
-    Below are responses from multiple AI models:
-    {context_text}
-    
-    Task: Synthesize a single, high-quality answer.
+async def run_process(question):
     """
-    
-    # Try 1: Ollama (local)
-    try:
-        response = await client.post(OLLAMA_URL, json={...})
-        return response.json()["response"]
-    except:
-        pass
-    
-    # Try 2: OpenAI API (if key exists)
-    api_key = os.getenv("OPENAI_API_KEY")
-    if api_key:
-        try:
-            response = await client.post(...OpenAI API...)
-            return f"**(Synthesized via Cloud Fallback)**\n\n{response}"
-        except:
-            pass
-    
-    # Try 3: g4f (free web)
-    try:
-        response = await g4f.ChatCompletion.create_async(
-            model=g4f.models.gpt_4,
-            messages=[...synthesis prompt...]
-        )
-        return f"**(Synthesized via Free Web Fallback)**\n\n{response}"
-    except Exception as e:
-        return f"Error: All synthesis methods failed."
+    Main orchestration function
+    1. Query all enabled providers
+    2. Retrieve relevant memories (if enabled)
+    3. Synthesize final answer
+    4. Store to memory (if learning enabled)
+    """
 ```
+
+**UI Structure:**
+- Sidebar: Provider toggles, API keys, settings
+- Main area: Query input, results display
+- Tabs: Chat, Discovery, Mobile, Memory
+
+### 2. API Server (`api.py`)
+
+**Purpose**: FastAPI backend for external clients
+
+**Endpoints:**
+
+| Endpoint | Method | Purpose |
+|----------|--------|---------|
+| `/health` | GET | Health check |
+| `/models` | GET | List available models |
+| `/chat` | POST | Standard request/response |
+| `/ws/chat` | WebSocket | Real-time streaming |
+| `/stream/chat` | POST | Server-sent events |
+| `/history` | GET | Chat history |
+
+**Request Model:**
+```python
+class ChatRequest(BaseModel):
+    query: str
+    online_models: List[str] = []
+    offline_models: List[str] = []
+    use_memory: bool = False
+    synthesizer_model: Optional[str] = None
+```
+
+**Response Model:**
+```python
+class ChatResponse(BaseModel):
+    final_answer: str
+    individual_responses: Dict[str, str]
+```
+
+### 3. Provider System (`llm_providers.py`)
+
+**Purpose**: Unified interface for all AI providers
+
+**Providers Supported:**
+
+```python
+# Online (API-based)
+async def fetch_openai(query, client)      # GPT models
+async def fetch_anthropic(query, client)   # Claude
+async def fetch_gemini(query, client)      # Gemini
+async def fetch_perplexity(query, client)  # Perplexity
+
+# Free fallback
+async def fetch_g4f(query, model, name)    # g4f (no key needed)
+
+# Offline
+async def fetch_ollama(query, model, client)  # Local models
+```
+
+**Provider Pattern:**
+```python
+async def fetch_provider(query: str, client: httpx.AsyncClient) -> str:
+    """
+    Standard provider interface:
+    - Takes query and HTTP client
+    - Returns string response or error message
+    - Handles all exceptions internally
+    """
+```
+
+### 4. Synthesis Engine (`offline_model.py`)
+
+**Purpose**: Combines multiple AI responses into one answer
+
+**Fallback Chain:**
+```python
+1. Try: Ollama (local, fast, private)
+   ↓ (if unavailable)
+2. Try: OpenAI API (requires key)
+   ↓ (if no key)
+3. Use: g4f (free web fallback)
+```
+
+**Synthesis Function:**
+```python
+async def synthesize_responses(
+    responses: Dict[str, str],
+    synthesizer_model: str = "llama3"
+) -> str:
+    """
+    Combines multiple AI responses
+    Returns: Single coherent answer
+    """
+```
+
+### 5. Memory Agent (`agents/memory.py`)
+
+**Purpose**: RAG-based learning and knowledge retention
+
+**Technology Stack:**
+- **Vector DB**: ChromaDB
+- **Embeddings**: `sentence-transformers/all-MiniLM-L6-v2`
+- **Persistence**: Local `./chroma_db` directory
+
+**Key Functions:**
+
+```python
+def add_to_vectordb(question, answer, metadata):
+    """Store Q&A pair with embeddings"""
+
+def search_memory(query, top_k=3):
+    """Retrieve relevant past Q&A"""
+
+def export_training_data():
+    """Export to JSONL for fine-tuning"""
+```
+
+**Memory Workflow:**
+```
+Query → Search similar past Q&A → Include in context → 
+Get Answer → Store new Q&A → Update embeddings
+```
+
+### 6. Discovery Agent (`agents/discovery.py`)
+
+**Purpose**: Find and test new models
+
+**Features:**
+- Search g4f models by name
+- Fetch all OpenRouter models
+- Scan local/network Ollama instances
+- Test model availability before adding
+
+**Key Functions:**
+
+```python
+def get_g4f_models() -> List[str]:
+    """List all g4f model names"""
+
+def search_models(query: str, openrouter_key: Optional[str]) -> Dict:
+    """Search across providers"""
+
+async def verify_model(provider: str, model: str, **kwargs) -> Dict:
+    """Test if model is accessible"""
+```
+
+---
+
+## API Reference
+
+### REST API
+
+#### POST `/chat`
+
+**Request:**
+```json
+{
+  "query": "What is AI?",
+  "online_models": ["ChatGPT (OpenAI)"],
+  "offline_models": ["llama3"],
+  "use_memory": true
+}
+```
+
+**Response:**
+```json
+{
+  "final_answer": "AI is...",
+  "individual_responses": {
+    "ChatGPT (OpenAI)": "...",
+    "Ollama (llama3)": "..."
+  }
+}
+```
+
+### WebSocket API
+
+#### WS `/ws/chat`
+
+**Connect:**
+```javascript
+const ws = new WebSocket('ws://localhost:8000/ws/chat');
+```
+
+**Send:**
+```json
+{
+  "query": "Hello",
+  "online_models": ["Free Web (g4f)"],
+  "offline_models": [],
+  "use_memory": true
+}
+```
+
+**Receive (progressive):**
+```json
+{"status": "processing", "message": "Processing query..."}
+{"status": "querying", "model": "GPT-4 (Free)"}
+{"status": "response", "model": "GPT-4 (Free)", "content": "..."}
+{"status": "synthesizing", "message": "Synthesizing..."}
+{"status": "complete", "final_answer": "...", "individual_responses": {...}}
+```
+
+### Streaming API
+
+#### POST `/stream/chat`
+
+**Request:** Same as `/chat`
+
+**Response:** Server-Sent Events (SSE)
+```
+data: {"status": "processing", "message": "..."}
+
+data: {"status": "querying", "model": "..."}
+
+data: {"status": "complete", "final_answer": "..."}
+```
+
+---
+
+## Data Flow
+
+### Query Processing Flow
+
+```
+1. User submits query
+   ↓
+2. API receives request (FastAPI)
+   ↓
+3. Query Orchestrator spawns parallel tasks
+   ├─→ OpenAI API
+   ├─→ Claude API
+   ├─→ g4f (free)
+   └─→ Ollama (local)
+   ↓
+4. Responses collected (with timeouts)
+   ↓
+5. Memory search for relevant context (optional)
+   ↓
+6. Synthesis Engine combines responses
+   ├─→ Try Ollama first
+   ├─→ Fallback to OpenAI
+   └─→ Fallback to g4f
+   ↓
+7. Store Q&A to memory (if enabled)
+   ↓
+8. Return final answer to user
+```
+
+### Memory-Enhanced Query Flow
+
+```
+Query → Memory Search → Inject context → Query LLMs →
+Synthesize → Store new Q&A → Return answer
+```
+
+**Context Injection:**
+```python
+enriched_query = f"""
+Context from memory:
+{past_qa_1}
+{past_qa_2}
+
+User question: {query}
+"""
+```
+
+---
+
+## Provider System
+
+### Adding a New Provider
+
+1. **Create fetch function** in `llm_providers.py`:
+```python
+async def fetch_newprovider(query: str, client: httpx.AsyncClient) -> str:
+    try:
+        # Make API call
+        response = await client.post(
+            "https://api.newprovider.com/chat",
+            json={"message": query}
+        )
+        return response.json()["text"]
+    except Exception as e:
+        return f"Error (NewProvider): {str(e)}"
+```
+
+2. **Add to orchestrator** in `api.py`:
+```python
+if "NewProvider" in online_models:
+    tasks.append(("NewProvider", fetch_newprovider(query, client)))
+```
+
+3. **Add UI toggle** in `app.py`
+
+### Provider Testing
+
+```python
+# Test individual provider
+pytest tests/test_providers.py::test_fetch_newprovider -v
+```
+
+---
+
+## Memory Agent
+
+### ChromaDB Schema
+
+**Collection:** `chat_history`
+
+**Document Structure:**
+```python
+{
+    "id": "uuid",
+    "documents": ["Q: ... A: ..."],
+    "metadatas": [{
+        "question": "...",
+        "answer": "...",
+        "timestamp": "...",
+        "models_used": "..."
+    }],
+    "embeddings": [[0.1, 0.2, ...]]  # 384-dim vectors
+}
+```
+
+### Similarity Search
+
+```python
+# Find top 3 similar Q&A pairs
+results = collection.query(
+    query_texts=[query],
+    n_results=3
+)
+```
+
+### Export Format (JSONL)
+
+```json
+{"prompt": "Q: ... A: ...", "completion": "..."}
+{"prompt": "Q: ... A: ...", "completion": "..."}
+```
+
+---
+
+## Mobile App
+
+### Architecture
+
+```
+React Native (Expo)
+  ↓
+Axios HTTP Client
+  ↓
+FastAPI Backend (localhost:8000)
+```
+
+### Key Components
+
+- **ChatScreen**: Main chat interface
+- **HistoryScreen**: View past conversations
+- **SettingsScreen**: Configure server URL, models
+
+### Connection Flow
+
+1. User opens mobile app
+2. Scans QR code from desktop app (contains server URL)
+3. Or manually enters: `http://192.168.1.x:8000`
+4. App validates connection via `/health`
+5. Fetches available models via `/models`
+6. Ready to chat via `/chat`
+
+---
+
+## Testing
+
+### Test Structure
+
+```
+tests/
+├── test_api.py         # API endpoints
+├── test_providers.py   # Provider functions
+├── test_discovery.py   # Discovery agent
+└── test_websocket.py   # WebSocket/streaming
+```
+
+### Running Tests
+
+```bash
+# All tests
+pytest tests/ -v
+
+# Specific test file
+pytest tests/test_api.py -v
+
+# Specific test
+pytest tests/test_api.py::test_health_check -v
+
+# With coverage
+pytest tests/ --cov=. --cov-report=html
+```
+
+### Test Coverage
+
+- ✅ API endpoints (health, models, chat)
+- ✅ Provider integrations (mocked)
+- ✅ Discovery (g4f, OpenRouter, Ollama)
+- ✅ WebSocket connections
+- ✅ Streaming responses
+
+---
 
 ## Configuration
 
 ### Environment Variables
 
-Create a `.env` file (optional):
-
-```env
-# OpenAI
+```bash
+# API Keys (optional)
 OPENAI_API_KEY=sk-...
-
-# Anthropic
 ANTHROPIC_API_KEY=sk-ant-...
-
-# Google
-GOOGLE_API_KEY=...
-
-# Perplexity
+GOOGLE_API_KEY=AIza...
 PERPLEXITY_API_KEY=pplx-...
+
+# Ollama (for Docker)
+OLLAMA_HOST=http://ollama:11434
 ```
 
-**Note**: All keys are optional. Missing keys trigger free web fallback.
+### Runtime Configuration
 
-### Ollama Configuration
+**Streamlit** (`app.py`):
+- Provider toggles in sidebar
+- Model selection
+- Memory enable/disable
 
-In `offline_model.py`:
+**API** (URL parameters):
+- Model selection in request body
+- Synthesizer model choice
+- Memory usage toggle
 
-```python
-OLLAMA_URL = "http://localhost:11434/api/generate"
-MODEL_NAME = "llama3"  # Change to your preferred model
-```
+---
 
-**Supported Models**: Any model pulled via `ollama pull <model>`
+## Performance
 
-## Error Handling
+### Optimization Strategies
 
-### Provider Errors
+1. **Parallel Execution**: All providers queried simultaneously
+2. **Timeouts**: Failed providers don't block others
+3. **Caching**: ChromaDB indexes for fast search
+4. **Async I/O**: No blocking operations
 
-Each provider function wraps its logic in try-except:
+### Typical Response Times
 
-```python
-try:
-    # API call
-    response = await client.post(...)
-    return response.json()[...]
-except Exception as e:
-    return f"Error (Provider Name): {str(e)}"
-```
+- **Single provider**: 1-3 seconds
+- **Multi-provider (3)**: 3-5 seconds (limited by slowest)
+- **With synthesis**: +1-2 seconds
+- **Memory search**: <100ms
 
-**User Experience**: Individual provider errors don't block the app. Other providers still return results.
+---
 
-### Synthesis Errors
+## Security Considerations
 
-The synthesis has 3 fallback levels:
+### Current Design (Local/Trusted Network)
 
-1. **Ollama fails** → Try OpenAI
-2. **OpenAI fails** → Try g4f
-3. **g4f fails** → Return detailed error message
+- ✅ No authentication (assumes local use)
+- ✅ API keys stored in `.env` or session state
+- ✅ No data sent to external servers (except provider APIs)
 
-**Error Message Format**:
-```
-Error: All synthesis methods failed.
-Ollama: [error details]
-OpenAI: Key missing or [error details]
-Free Web: [error details]
-```
+### Production Deployment
 
-## Customization Guide
+**If exposing to internet**, add:
+- 🔒 API key authentication
+- 🔒 HTTPS/WSS
+- 🔒 Rate limiting
+- 🔒 Input validation/sanitization
+- 🔒 CORS configuration
 
-### Adding a New Provider
-
-1. **Create provider function** in `llm_providers.py`:
-
-```python
-async def fetch_newprovider(query: str, client: httpx.AsyncClient):
-    api_key = os.getenv("NEWPROVIDER_API_KEY")
-    if not api_key:
-        return await fetch_g4f(query, "model-name", "NewProvider")
-    
-    try:
-        response = await client.post(
-            "https://api.newprovider.com/...",
-            headers={"Authorization": f"Bearer {api_key}"},
-            json={"model": "...", "messages": [{"role": "user", "content": query}]}
-        )
-        return response.json()["..."]
-    except Exception as e:
-        return f"Error (NewProvider): {str(e)}"
-```
-
-2. **Add to orchestrator**:
-
-```python
-async def get_all_responses(query: str):
-    async with httpx.AsyncClient() as client:
-        results = await asyncio.gather(
-            fetch_openai(query, client),
-            fetch_anthropic(query, client),
-            fetch_gemini(query, client),
-            fetch_perplexity(query, client),
-            fetch_newprovider(query, client)  # Add here
-        )
-    return {
-        "ChatGPT": results[0],
-        "Claude": results[1],
-        "Gemini": results[2],
-        "Perplexity": results[3],
-        "NewProvider": results[4]  # Add here
-    }
-```
-
-3. **Update UI** in `app.py` to display the new provider's results.
-
-### Changing g4f Model
-
-In `llm_providers.py`:
-
-```python
-async def fetch_g4f(query: str, model: str, provider_name: str):
-    g4f_model = g4f.models.gpt_4  # Change to any available model
-    # Available: gpt_4, llama_3_70b, mistral_7b, etc.
-    # Check with: print(dir(g4f.models))
-```
-
-### Customizing Synthesis Prompt
-
-In `offline_model.py`, modify the `prompt` variable:
-
-```python
-prompt = f"""
-You are a [custom role].
-User Question: "{query}"
-
-Responses:
-{context_text}
-
-Task:
-1. [Custom instruction 1]
-2. [Custom instruction 2]
-
-Final Answer:
-"""
-```
-
-## Performance Considerations
-
-### Timeouts
-
-```python
-TIMEOUT = 30.0  # seconds for API calls
-```
-
-Adjust in `llm_providers.py` for slower connections.
-
-### Concurrent Execution
-
-All providers are queried concurrently using `asyncio.gather()`:
-- **Pros**: Faster (parallel execution)
-- **Cons**: Higher memory usage
-
-### Caching (Not Implemented)
-
-**Future Enhancement**: Add response caching to avoid re-querying for identical questions.
-
-## Security Best Practices
-
-1. **Never commit `.env`**: Already in `.gitignore`
-2. **Use environment variables**: Don't hardcode keys
-3. **Validate inputs**: Streamlit handles basic validation
-4. **Rate limiting**: Consider adding for production use
-5. **API key rotation**: Regularly rotate keys if using official APIs
+---
 
 ## Troubleshooting
 
-### "har_and_cookies dir is not readable"
+### Common Issues
 
-**Cause**: Certain g4f models (e.g., `gpt_4o`) have permission issues.
-
-**Solution**: Use `gpt_4` model instead (already implemented).
-
-### "Add a 'api_key'" error
-
-**Cause**: Some g4f models (e.g., `llama_3_70b`) require keys even for free access.
-
-**Solution**: Use `gpt_4` for all providers (already implemented).
-
-### Synthesis fails
-
-**Cause**: All three synthesis methods failed.
-
-**Solutions**:
-1. Install Ollama: `curl -fsSL https://ollama.com/install.sh | sh`
-2. Add OpenAI API key to `.env`
-3. Check g4f service status
-
-### Slow responses
-
-**Cause**: Free web access can be slower than official APIs.
-
-**Solutions**:
-1. Add official API keys for faster responses
-2. Increase timeout values
-3. Use local Ollama for synthesis
-
-## Testing
-
-### Manual Testing
-
+**"Ollama 404":**
 ```bash
-# Test individual providers
-python test_models.py
-
-# Test g4f inspection
-python inspect_g4f.py
-
-# Test basic g4f functionality
-python test_g4f.py
+ollama serve
+ollama pull llama3
 ```
 
-### Unit Tests (To Be Added)
-
-Future enhancement: Add pytest-based unit tests.
-
-## Deployment Notes
-
-### Local Deployment
-
-Works out of the box. Just run:
+**"No module named 'chromadb'":**
 ```bash
-streamlit run app.py
+pip install -r requirements.txt
 ```
 
-### Cloud Deployment (Streamlit Cloud)
+**WebSocket connection failed:**
+- Check firewall rules
+- Ensure API is running: `curl http://localhost:8000/health`
 
-1. **Ollama won't work** (no Docker support)
-2. **Solution**: App automatically uses free web fallback
-3. **Optional**: Add API keys in Streamlit secrets for better performance
+---
 
-### Docker Deployment (Future)
+## Contributing
 
-Not yet implemented. Would require:
-- Dockerfile
-- Ollama in separate container
-- docker-compose for orchestration
+### Code Style
 
-## Future Enhancements
+- Use `async`/`await` for I/O operations
+- Type hints on all function signatures
+- Docstrings for public functions
+- Error handling with try/except
 
-1. **Response Caching**: Cache responses for identical queries
-2. **User Sessions**: Track query history
-3. **Export Results**: Save responses as PDF/JSON
-4. **Custom Models**: Allow users to select specific models per provider
-5. **Streaming Responses**: Show responses as they arrive
-6. **Analytics**: Track usage patterns
-7. **Multi-language Support**: Translate UI and responses
+### Pull Request Checklist
 
-## Support
+- [ ] Tests pass (`pytest tests/`)
+- [ ] New features have tests
+- [ ] Documentation updated
+- [ ] Code formatted (`black`, `isort`)
 
-For issues or questions:
-- GitHub Issues: [Multi-LLM-Aggregator Issues](https://github.com/jimmymannekkattu/Multi-LLM-Aggregator/issues)
-- Documentation: This file and README.md
+---
 
-## Version History
+## Roadmap
 
-- **v1.0** (Initial): Basic multi-LLM querying with Ollama synthesis
-- **v1.1** (Current): Added g4f free web access and intelligent fallbacks
+**Planned Features:**
+- [ ] Voice input/output
+- [ ] Image generation support
+- [ ] Plugin system for custom providers
+- [ ] Multi-user support
+- [ ] Conversation branching
+- [ ] Model fine-tuning integration
+
+---
+
+**Questions?** Open an issue on [GitHub](https://github.com/jimmymannekkattu/Multi-LLM-Aggregator/issues)
