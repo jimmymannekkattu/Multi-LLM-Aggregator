@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Nexus - Chat</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .chat-container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            width: 90%;
+            max-width: 600px;
+            height: 80vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 24px;
+            margin-bottom: 5px;
+        }
+
+        .status {
+            font-size: 12px;
+            opacity: 0.9;
+        }
+
+        .status.connected {
+            color: #4ade80;
+        }
+
+        .status.disconnected {
+            color: #f87171;
+        }
+
+        .messages {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+            background: #f9fafb;
+        }
+
+        .message {
+            margin-bottom: 15px;
+            padding: 12px;
+            border-radius: 10px;
+            animation: fadeIn 0.3s;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .message.user {
+            background: #667eea;
+            color: white;
+            margin-left: 20%;
+        }
+
+        .message.ai {
+            background: white;
+            border: 1px solid #e5e7eb;
+            margin-right: 20%;
+        }
+
+        .message.status {
+            background: #fef3c7;
+            text-align: center;
+            font-size: 14px;
+            color: #92400e;
+        }
+
+        .message.error {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .input-area {
+            padding: 20px;
+            background: white;
+            border-top: 1px solid #e5e7eb;
+            display: flex;
+            gap: 10px;
+        }
+
+        input {
+            flex: 1;
+            padding: 12px;
+            border: 2px solid #e5e7eb;
+            border-radius: 10px;
+            font-size: 14px;
+            transition: border-color 0.3s;
+        }
+
+        input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        button {
+            padding: 12px 24px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: transform 0.2s;
+        }
+
+        button:hover {
+            transform: scale(1.05);
+        }
+
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .loader {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border: 2px solid #f3f3f3;
+            border-top: 2px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="chat-container">
+        <div class="header">
+            <h1>🤖 AI Nexus Chat</h1>
+            <div class="status" id="status">Connecting...</div>
+        </div>
+
+        <div class="messages" id="messages"></div>
+
+        <div class="input-area">
+            <input type="text" id="query-input" placeholder="Ask me anything..." disabled>
+            <button id="send-btn" onclick="sendQuery()" disabled>Send</button>
+        </div>
+    </div>
+
+    <script>
+        let ws = null;
+        let isProcessing = false;
+        const statusEl = document.getElementById('status');
+        const messagesEl = document.getElementById('messages');
+        const inputEl = document.getElementById('query-input');
+        const sendBtn = document.getElementById('send-btn');
+
+        function connect() {
+            // Try to connect to WebSocket
+            const wsUrl = 'ws://localhost:8000/ws/chat';
+            ws = new WebSocket(wsUrl);
+
+            ws.onopen = () => {
+                statusEl.textContent = '✓ Connected';
+                statusEl.className = 'status connected';
+                inputEl.disabled = false;
+                sendBtn.disabled = false;
+                addMessage('Connected to AI Nexus! Ask me anything.', 'status');
+            };
+
+            ws.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                handleResponse(data);
+            };
+
+            ws.onerror = (error) => {
+                statusEl.textContent = '✗ Connection Error';
+                statusEl.className = 'status disconnected';
+                addMessage('Connection error. Make sure the API is running on localhost:8000', 'error');
+            };
+
+            ws.onclose = () => {
+                statusEl.textContent = '✗ Disconnected';
+                statusEl.className = 'status disconnected';
+                inputEl.disabled = true;
+                sendBtn.disabled = true;
+
+                // Try to reconnect after 3 seconds
+                setTimeout(() => {
+                    if (ws.readyState === WebSocket.CLOSED) {
+                        connect();
+                    }
+                }, 3000);
+            };
+        }
+
+        function handleResponse(data) {
+            const status = data.status;
+
+            if (status === 'processing') {
+                addMessage('⏳ ' + data.message, 'status');
+            }
+            else if (status === 'querying') {
+                addMessage('🔍 Querying ' + data.model + '...', 'status');
+            }
+            else if (status === 'response') {
+                // Optionally show individual responses
+                // addMessage(data.model + ': ' + data.content, 'ai');
+            }
+            else if (status === 'synthesizing') {
+                addMessage('🧠 ' + data.message, 'status');
+            }
+            else if (status === 'complete') {
+                addMessage(data.final_answer, 'ai');
+                isProcessing = false;
+                sendBtn.disabled = false;
+                inputEl.disabled = false;
+            }
+            else if (status === 'error') {
+                addMessage('❌ Error: ' + data.error, 'error');
+                isProcessing = false;
+                sendBtn.disabled = false;
+                inputEl.disabled = false;
+            }
+        }
+
+        function sendQuery() {
+            const query = inputEl.value.trim();
+            if (!query || isProcessing) return;
+
+            addMessage(query, 'user');
+
+            // Send to WebSocket
+            const request = {
+                query: query,
+                online_models: ["Free Web (g4f)"],  // Use free online models
+                offline_models: [],  // Empty - no local Ollama needed
+                use_memory: true
+            };
+
+            ws.send(JSON.stringify(request));
+
+            inputEl.value = '';
+            isProcessing = true;
+            sendBtn.disabled = true;
+        }
+
+        function addMessage(text, type) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = 'message ' + type;
+            messageDiv.textContent = text;
+            messagesEl.appendChild(messageDiv);
+            messagesEl.scrollTop = messagesEl.scrollHeight;
+        }
+
+        // Handle Enter key
+        inputEl.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter' && !isProcessing) {
+                sendQuery();
+            }
+        });
+
+        // Connect on load
+        window.onload = connect;
+    </script>
+</body>
+
+</html>

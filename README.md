@@ -242,27 +242,6 @@ You can run the entire stack (Frontend, Backend, and Local AI) using Docker or P
 **Prerequisites**:
 - [Docker Desktop](https://www.docker.com/products/docker-desktop/) or [Podman](https://podman.io/)
 - [Docker Compose](https://docs.docker.com/compose/install/) (usually included)
-
-**Running with Docker Compose**:
-
-```bash
-# Build and start services
-docker-compose up --build -d
-
-# View logs
-docker-compose logs -f
-```
-
-**Access**:
-- **Desktop App**: `http://localhost:8501`
-- **Mobile API**: `http://localhost:8000`
-- **Ollama**: `http://localhost:11434`
-
-**Note**: The first run will pull the Ollama image and build the app container, which may take a few minutes. To use GPU with Ollama, uncomment the `deploy` section in `docker-compose.yml` and ensure you have the NVIDIA Container Toolkit installed.
-
-
-## 📁 Project Structure
-
 ```
 Multi-LLM-Aggregator/
 ├── app.py                  # Main Streamlit application

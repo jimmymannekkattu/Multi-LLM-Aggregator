@@ -224,7 +224,136 @@ const sendMessage = async (query) => {
 
 ---
 
-## 🧪 Testing the API
+## 🔌 WebSocket API
+
+### `WS /ws/chat`
+Real-time bidirectional communication for chat.
+
+**Connection**: `ws://localhost:8000/ws/chat`
+
+**Client Sends**:
+```json
+{
+  "query": "What is AI?",
+  "online_models": ["ChatGPT (OpenAI)"],
+  "offline_models": ["llama3"],
+  "use_memory": true,
+  "synthesizer_model": "llama3"
+}
+```
+
+**Server Streams**:
+```json
+// Processing status
+{"status": "processing", "message": "Processing query..."}
+
+// Model querying
+{"status": "querying", "model": "ChatGPT"}
+
+// Individual response
+{"status": "response", "model": "ChatGPT", "content": "AI is..."}
+
+// Synthesizing
+{"status": "synthesizing", "message": "Synthesizing final answer..."}
+
+// Final response
+{
+  "status": "complete",
+  "final_answer": "Artificial Intelligence is...",
+  "individual_responses": {...}
+}
+
+// Error
+{"status": "error", "error": "Error message"}
+```
+
+### Python Example
+```python
+import asyncio
+import websockets
+import json
+
+async def chat():
+    async with websockets.connect("ws://localhost:8000/ws/chat") as ws:
+        await ws.send(json.dumps({
+            "query": "Hello!",
+            "offline_models": ["llama3"]
+        }))
+        
+        async for message in ws:
+            data = json.loads(message)
+            if data["status"] == "complete":
+                print(data["final_answer"])
+                break
+
+asyncio.run(chat())
+```
+
+### JavaScript Example
+```javascript
+const ws = new WebSocket('ws://localhost:8000/ws/chat');
+
+ws.onopen = () => {
+    ws.send(JSON.stringify({
+        query: "Hello!",
+        offline_models: ["llama3"]
+    }));
+};
+
+ws.onmessage = (event) => {
+    const data = JSON.parse(event.data);
+    if (data.status === 'complete') {
+        console.log(data.final_answer);
+    }
+};
+```
+
+---
+
+## 📡 Streaming API (Server-Sent Events)
+
+### `POST /stream/chat`
+Stream responses progressively using SSE.
+
+**Request**: Same as `/chat` endpoint
+
+**Response**: Server-Sent Events stream
+
+**Event Types**:
+- `status` - Processing updates
+- `model` - Model being queried
+- `response` - Individual model response
+- `error` - Error from a model
+- `complete` - Final synthesized answer
+
+### Python Example
+```python
+import httpx
+import json
+
+with httpx.stream("POST", "http://localhost:8000/stream/chat",
+                  json={"query": "Test", "offline_models": ["llama3"]},
+                  timeout=120) as response:
+    for line in response.iter_lines():
+        if line.startswith("data:"):
+            data = json.loads(line[5:])
+            if "final_answer" in data:
+                print(data["final_answer"])
+```
+
+### JavaScript Example
+```javascript
+const eventSource = new EventSource('/stream/chat');
+
+eventSource.addEventListener('complete', (event) => {
+    const data = JSON.parse(event.data);
+    console.log(data.final_answer);
+});
+```
+
+---
+
+## 🔧 Testing the API
 
 ### Using curl
 

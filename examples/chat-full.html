@@ -1,0 +1,1033 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Nexus Chat</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            height: 100vh;
+            display: flex;
+            overflow: hidden;
+            background: #f8fafc;
+        }
+
+        /* Sidebar */
+        .sidebar {
+            width: 340px;
+            background: linear-gradient(180deg, #1e293b 0%, #0f172a 100%);
+            color: white;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 2px 0 10px rgba(0, 0, 0, 0.1);
+            transition: margin-left 0.3s ease;
+            z-index: 100;
+        }
+
+        .sidebar.hidden {
+            margin-left: -340px;
+        }
+
+        .sidebar-header {
+            padding: 24px 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .sidebar-header h2 {
+            font-size: 22px;
+            font-weight: 700;
+            margin-bottom: 6px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .sidebar-header .status {
+            font-size: 13px;
+            opacity: 0.95;
+            font-weight: 500;
+        }
+
+        .tabs {
+            display: flex;
+            background: #0f172a;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .tab {
+            flex: 1;
+            padding: 14px 8px;
+            text-align: center;
+            cursor: pointer;
+            border-bottom: 3px solid transparent;
+            transition: all 0.2s;
+            font-size: 13px;
+            font-weight: 600;
+            color: #94a3b8;
+        }
+
+        .tab:hover {
+            background: rgba(255, 255, 255, 0.05);
+            color: #cbd5e1;
+        }
+
+        .tab.active {
+            border-bottom-color: #667eea;
+            background: #1e293b;
+            color: white;
+        }
+
+        .tab-content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 16px;
+        }
+
+        .tab-content::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .tab-content::-webkit-scrollbar-track {
+            background: #1e293b;
+        }
+
+        .tab-content::-webkit-scrollbar-thumb {
+            background: #475569;
+            border-radius: 3px;
+        }
+
+        .tab-panel {
+            display: none;
+        }
+
+        .tab-panel.active {
+            display: block;
+        }
+
+        /* Model Sections */
+        .model-section {
+            margin-bottom: 24px;
+        }
+
+        .model-section h3 {
+            font-size: 13px;
+            font-weight: 700;
+            margin-bottom: 8px;
+            color: #f1f5f9;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .help-text {
+            font-size: 12px;
+            color: #94a3b8;
+            line-height: 1.5;
+            margin-bottom: 12px;
+            padding: 8px 12px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 6px;
+            border-left: 3px solid #667eea;
+        }
+
+        .model-card {
+            display: flex;
+            align-items: center;
+            padding: 12px 14px;
+            margin-bottom: 8px;
+            background: rgba(255, 255, 255, 0.06);
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+            border: 1px solid transparent;
+        }
+
+        .model-card:hover {
+            background: rgba(255, 255, 255, 0.1);
+            border-color: rgba(102, 126, 234, 0.3);
+            transform: translateX(2px);
+        }
+
+        .model-card.selected {
+            background: linear-gradient(135deg, rgba(102, 126, 234, 0.2) 0%, rgba(118, 75, 162, 0.2) 100%);
+            border-color: #667eea;
+        }
+
+        .model-card input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            margin-right: 12px;
+            cursor: pointer;
+            accent-color: #667eea;
+        }
+
+        .model-card-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+
+        .model-name {
+            font-size: 14px;
+            font-weight: 600;
+            color: #f8fafc;
+        }
+
+        .model-badge {
+            display: inline-block;
+            font-size: 10px;
+            font-weight: 600;
+            padding: 2px 8px;
+            border-radius: 4px;
+            margin-left: 6px;
+        }
+
+        .badge-free {
+            background: #10b981;
+            color: white;
+        }
+
+        .badge-api {
+            background: #64748b;
+            color: white;
+        }
+
+        /* Settings */
+        .setting-group {
+            margin-bottom: 20px;
+        }
+
+        .setting-group label {
+            display: block;
+            font-size: 12px;
+            font-weight: 600;
+            margin-bottom: 6px;
+            color: #cbd5e1;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+        }
+
+        .setting-group input {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 6px;
+            background: rgba(255, 255, 255, 0.05);
+            color: white;
+            font-size: 14px;
+            transition: all 0.2s;
+        }
+
+        .setting-group input:focus {
+            outline: none;
+            border-color: #667eea;
+            background: rgba(255, 255, 255, 0.08);
+        }
+
+        .setting-group button {
+            width: 100%;
+            padding: 12px;
+            margin-top: 6px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            transition: all 0.2s;
+        }
+
+        .setting-group button:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+
+        .node-item {
+            padding: 10px 12px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 6px;
+            margin-bottom: 6px;
+            font-size: 13px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .node-item button {
+            padding: 4px 10px;
+            background: #ef4444;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 11px;
+            font-weight: 600;
+            transition: all 0.2s;
+        }
+
+        .node-item button:hover {
+            background: #dc2626;
+        }
+
+        /* Main Chat Area */
+        .main-area {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            background: #ffffff;
+        }
+
+        .chat-header {
+            padding: 16px 24px;
+            background: white;
+            border-bottom: 1px solid #e5e7eb;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+        }
+
+        .toggle-sidebar {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 10px 16px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 14px;
+            transition: all 0.2s;
+        }
+
+        .toggle-sidebar:hover {
+            transform: scale(1.05);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+        }
+
+        .chat-header h1 {
+            font-size: 20px;
+            font-weight: 700;
+            color: #1e293b;
+        }
+
+        .model-count {
+            background: #f1f5f9;
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: 13px;
+            font-weight: 600;
+            color: #475569;
+        }
+
+        .model-count.active {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 24px;
+            background: #f8fafc;
+        }
+
+        .messages::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .messages::-webkit-scrollbar-track {
+            background: #f1f5f9;
+        }
+
+        .messages::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 4px;
+        }
+
+        .message {
+            margin-bottom: 16px;
+            padding: 14px 16px;
+            border-radius: 12px;
+            animation: fadeIn 0.3s ease;
+            max-width: 75%;
+            line-height: 1.6;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+
+        .message strong {
+            font-weight: 700;
+        }
+
+        .message br {
+            display: block;
+            margin: 8px 0;
+            content: "";
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .message.user {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            margin-left: auto;
+            box-shadow: 0 2px 8px rgba(102, 126, 234, 0.2);
+        }
+
+        .message.ai {
+            background: white;
+            border: 1px solid #e5e7eb;
+            margin-right: auto;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+        }
+
+        .message.status {
+            background: #fef3c7;
+            text-align: center;
+            font-size: 13px;
+            color: #92400e;
+            max-width: none;
+            margin: 0 auto 16px;
+            transition: all 0.2s ease;
+        }
+
+        .message.error {
+            background: #fee2e2;
+            color: #991b1b;
+            border: 1px solid #fecaca;
+            max-width: none;
+        }
+
+        /* Toast Notifications */
+        .toast {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            color: white;
+            padding: 14px 20px;
+            border-radius: 12px;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+            font-size: 14px;
+            font-weight: 600;
+            z-index: 1000;
+            animation: toastSlideIn 0.3s ease, toastSlideOut 0.3s ease 2.7s;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        @keyframes toastSlideIn {
+            from {
+                transform: translateX(400px);
+                opacity: 0;
+            }
+
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        @keyframes toastSlideOut {
+            from {
+                transform: translateX(0);
+                opacity: 1;
+            }
+
+            to {
+                transform: translateX(400px);
+                opacity: 0;
+            }
+        }
+
+        .input-area {
+            padding: 20px 24px;
+            background: white;
+            border-top: 1px solid #e5e7eb;
+            display: flex;
+            gap: 12px;
+        }
+
+        input#query-input {
+            flex: 1;
+            padding: 14px 18px;
+            border: 2px solid #e5e7eb;
+            border-radius: 12px;
+            font-size: 15px;
+            transition: all 0.2s;
+            font-family: inherit;
+        }
+
+        input#query-input:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        button#send-btn {
+            padding: 14px 28px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+            font-weight: 700;
+            font-size: 15px;
+            transition: all 0.2s;
+        }
+
+        button#send-btn:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(102, 126, 234, 0.4);
+        }
+
+        button#send-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        /* Search */
+        .search-box {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 16px;
+        }
+
+        .search-box input {
+            flex: 1;
+            padding: 10px 14px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            background: rgba(255, 255, 255, 0.05);
+            color: white;
+            font-size: 14px;
+        }
+
+        .search-box button {
+            padding: 10px 20px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 40px 20px;
+            color: #94a3b8;
+        }
+
+        .empty-state-icon {
+            font-size: 48px;
+            margin-bottom: 12px;
+            opacity: 0.5;
+        }
+    </style>
+</head>
+
+<body>
+    <!-- Sidebar -->
+    <div class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <h2>🤖 AI Nexus</h2>
+            <div class="status" id="sidebar-status">Connecting...</div>
+        </div>
+
+        <div class="tabs">
+            <div class="tab active" onclick="switchTab(event, 'models')">Models</div>
+            <div class="tab" onclick="switchTab(event, 'discovery')">Discovery</div>
+            <div class="tab" onclick="switchTab(event, 'settings')">Settings</div>
+        </div>
+
+        <div class="tab-content">
+            <!-- Models Tab -->
+            <div class="tab-panel active" id="models-panel">
+                <div class="model-section">
+                    <h3>🌐 Online Models</h3>
+                    <div class="help-text">
+                        Select which AI models to query. Free Web works instantly!
+                    </div>
+                    <div id="online-models"></div>
+                </div>
+
+                <div class="model-section">
+                    <h3>💻 Offline Models</h3>
+                    <div class="help-text">
+                        Local models running via Ollama on your computer.
+                    </div>
+                    <div id="offline-models"></div>
+                </div>
+
+                <div class="model-section">
+                    <h3>🌍 Network Nodes</h3>
+                    <div class="help-text">
+                        Models from other computers on your network.
+                    </div>
+                    <div id="network-models">
+                        <div class="empty-state">
+                            <div class="empty-state-icon">📡</div>
+                            <div style="font-size: 12px;">No network nodes configured</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Discovery Tab -->
+            <div class="tab-panel" id="discovery-panel">
+                <div class="help-text">
+                    Search for models across g4f and OpenRouter providers.
+                </div>
+                <div class="search-box">
+                    <input type="text" id="search-query" placeholder="Search model name...">
+                    <button onclick="searchModels()">🔍</button>
+                </div>
+                <div id="search-results">
+                    <div class="empty-state">
+                        <div class="empty-state-icon">🔍</div>
+                        <div style="font-size: 12px;">Enter a model name to search</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Settings Tab -->
+            <div class="tab-panel" id="settings-panel">
+                <div class="setting-group">
+                    <label>🔑 OpenAI API Key</label>
+                    <input type="password" id="openai-key" placeholder="sk-...">
+                </div>
+
+                <div class="setting-group">
+                    <label>🔑 Anthropic API Key</label>
+                    <input type="password" id="anthropic-key" placeholder="sk-ant-...">
+                </div>
+
+                <div class="setting-group">
+                    <label>🔑 Google API Key</label>
+                    <input type="password" id="google-key" placeholder="AIza...">
+                </div>
+
+                <div class="setting-group">
+                    <label>🔑 OpenRouter API Key</label>
+                    <input type="password" id="openrouter-key" placeholder="sk-or-...">
+                </div>
+
+                <div class="setting-group">
+                    <h3 style="font-size: 14px; margin-bottom: 10px; color: #f1f5f9;">📡 Network Nodes</h3>
+                    <input type="text" id="node-name" placeholder="Node name (e.g., Gaming PC)"
+                        style="margin-bottom: 8px;">
+                    <input type="text" id="node-url" placeholder="http://192.168.1.x:11434">
+                    <button onclick="addNode()">➕ Add Node</button>
+                    <div id="nodes-list" style="margin-top: 12px;"></div>
+                </div>
+
+                <div class="setting-group">
+                    <button onclick="saveSettings()">💾 Save All Settings</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Chat Area -->
+    <div class="main-area">
+        <div class="chat-header">
+            <button class="toggle-sidebar" onclick="toggleSidebar()">☰ Menu</button>
+            <h1>AI Nexus Chat</h1>
+            <div class="model-count" id="model-count">0 models</div>
+        </div>
+
+        <div class="messages" id="messages"></div>
+
+        <div class="input-area">
+            <input type="text" id="query-input" placeholder="Ask me anything..." disabled>
+            <button id="send-btn" onclick="sendQuery()" disabled>Send →</button>
+        </div>
+    </div>
+
+    <script>
+        // State
+        let ws = null;
+        let isProcessing = false;
+        let selectedOnline = [];
+        let selectedOffline = [];
+        let networkNodes = [];
+        let apiKeys = {};
+
+        // Load settings
+        function loadSettings() {
+            const saved = localStorage.getItem('ainexus-settings');
+            if (saved) {
+                const settings = JSON.parse(saved);
+                selectedOnline = settings.selectedOnline || [];
+                selectedOffline = settings.selectedOffline || [];
+                networkNodes = settings.networkNodes || [];
+                apiKeys = settings.apiKeys || {};
+
+                document.getElementById('openai-key').value = apiKeys.openai || '';
+                document.getElementById('anthropic-key').value = apiKeys.anthropic || '';
+                document.getElementById('google-key').value = apiKeys.google || '';
+                document.getElementById('openrouter-key').value = apiKeys.openrouter || '';
+
+                renderNodes();
+            } else {
+                selectedOnline = ["Free Web (g4f)"];
+                selectedOffline = [];
+                saveSettings();
+                setTimeout(() => {
+                    showToast('👋 Welcome! Free Web (g4f) is ready to use.');
+                }, 500);
+            }
+        }
+
+        function saveSettings() {
+            apiKeys = {
+                openai: document.getElementById('openai-key').value,
+                anthropic: document.getElementById('anthropic-key').value,
+                google: document.getElementById('google-key').value,
+                openrouter: document.getElementById('openrouter-key').value
+            };
+
+            localStorage.setItem('ainexus-settings', JSON.stringify({
+                selectedOnline,
+                selectedOffline,
+                networkNodes,
+                apiKeys
+            }));
+
+            showToast('✅ Settings saved successfully!');
+        }
+
+        // Toast notification system
+        function showToast(message, duration = 3000) {
+            // Remove any existing toast
+            const existingToast = document.querySelector('.toast');
+            if (existingToast) {
+                existingToast.remove();
+            }
+
+            // Create new toast
+            const toast = document.createElement('div');
+            toast.className = 'toast';
+            toast.textContent = message;
+            document.body.appendChild(toast);
+
+            // Auto-remove after duration
+            setTimeout(() => {
+                toast.remove();
+            }, duration);
+        }
+
+        // UI Functions
+        function switchTab(event, tab) {
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+            event.target.classList.add('active');
+            document.getElementById(tab + '-panel').classList.add('active');
+        }
+
+        function toggleSidebar() {
+            document.getElementById('sidebar').classList.toggle('hidden');
+        }
+
+        // WebSocket
+        function connect() {
+            ws = new WebSocket('ws://localhost:8000/ws/chat');
+
+            ws.onopen = () => {
+                document.getElementById('sidebar-status').textContent = '✓ Connected & Ready';
+                document.getElementById('query-input').disabled = false;
+                document.getElementById('send-btn').disabled = false;
+                fetchModels();
+            };
+
+            ws.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                handleResponse(data);
+            };
+
+            ws.onerror = () => {
+                document.getElementById('sidebar-status').textContent = '✗ Connection Error';
+                addMessage('⚠️ Cannot connect to API. Make sure the server is running on localhost:8000', 'error');
+            };
+
+            ws.onclose = () => {
+                document.getElementById('sidebar-status').textContent = '✗ Disconnected';
+                document.getElementById('query-input').disabled = true;
+                document.getElementById('send-btn').disabled = true;
+                setTimeout(connect, 3000);
+            };
+        }
+
+        // Fetch models
+        async function fetchModels() {
+            renderOnlineModels();
+
+            try {
+                const response = await fetch('http://localhost:8000/models');
+                const data = await response.json();
+                renderOfflineModels(data.offline || []);
+            } catch (error) {
+                renderOfflineModels([]);
+            }
+        }
+
+        function renderOnlineModels() {
+            const models = [
+                { name: "Free Web (g4f)", free: true },
+                { name: "ChatGPT (OpenAI)", free: false },
+                { name: "Claude (Anthropic)", free: false },
+                { name: "Gemini (Google)", free: false },
+                { name: "Perplexity", free: false }
+            ];
+
+            const html = models.map(model => {
+                const isSelected = selectedOnline.includes(model.name);
+                const badge = model.free ?
+                    '<span class="model-badge badge-free">FREE</span>' :
+                    '<span class="model-badge badge-api">API KEY</span>';
+
+                return `
+                    <div class="model-card ${isSelected ? 'selected' : ''}" onclick="toggleModelCard(event, 'online', '${model.name}')">
+                        <input type="checkbox" 
+                               id="online-${model.name}" 
+                               ${isSelected ? 'checked' : ''}
+                               onclick="event.stopPropagation(); toggleModel('online', '${model.name}')">
+                        <div class="model-card-content">
+                            <div class="model-name">${model.name}${badge}</div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            document.getElementById('online-models').innerHTML = html;
+            updateModelCount();
+        }
+
+        function renderOfflineModels(models) {
+            const container = document.getElementById('offline-models');
+            if (models.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-state-icon">💻</div>
+                        <div style="font-size: 12px;">No Ollama models found</div>
+                    </div>
+                `;
+                return;
+            }
+
+            if (selectedOffline.length === 0 && models.length > 0) {
+                selectedOffline = [models[0]];
+                saveSettings();
+            }
+
+            const html = models.map(model => {
+                const isSelected = selectedOffline.includes(model);
+                return `
+                    <div class="model-card ${isSelected ? 'selected' : ''}" onclick="toggleModelCard(event, 'offline', '${model}')">
+                        <input type="checkbox"
+                               id="offline-${model}"
+                               ${isSelected ? 'checked' : ''}
+                               onclick="event.stopPropagation(); toggleModel('offline', '${model}')">
+                        <div class="model-card-content">
+                            <div class="model-name">${model}</div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            container.innerHTML = html;
+            updateModelCount();
+        }
+
+        function toggleModelCard(event, type, name) {
+            const checkbox = event.currentTarget.querySelector('input[type="checkbox"]');
+            checkbox.checked = !checkbox.checked;
+            toggleModel(type, name);
+        }
+
+        function toggleModel(type, name) {
+            if (type === 'online') {
+                const index = selectedOnline.indexOf(name);
+                if (index > -1) selectedOnline.splice(index, 1);
+                else selectedOnline.push(name);
+            } else {
+                const index = selectedOffline.indexOf(name);
+                if (index > -1) selectedOffline.splice(index, 1);
+                else selectedOffline.push(name);
+            }
+            updateModelCount();
+            saveSettings();
+            renderOnlineModels();
+            fetchModels();
+        }
+
+        function updateModelCount() {
+            const total = selectedOnline.length + selectedOffline.length;
+            const countEl = document.getElementById('model-count');
+            countEl.textContent = total === 1 ? '1 model' : `${total} models`;
+            countEl.className = total > 0 ? 'model-count active' : 'model-count';
+        }
+
+        // Nodes
+        function addNode() {
+            const name = document.getElementById('node-name').value;
+            const url = document.getElementById('node-url').value;
+            if (!name || !url) return;
+
+            networkNodes.push({ name, url });
+            document.getElementById('node-name').value = '';
+            document.getElementById('node-url').value = '';
+            renderNodes();
+            saveSettings();
+        }
+
+        function removeNode(index) {
+            networkNodes.splice(index, 1);
+            renderNodes();
+            saveSettings();
+        }
+
+        function renderNodes() {
+            const container = document.getElementById('nodes-list');
+            if (networkNodes.length === 0) {
+                container.innerHTML = '';
+                return;
+            }
+
+            container.innerHTML = networkNodes.map((node, i) => `
+                <div class="node-item">
+                    <span><strong>${node.name}</strong><br><small style="opacity:0.7">${node.url}</small></span>
+                    <button onclick="removeNode(${i})">Remove</button>
+                </div>
+            `).join('');
+        }
+
+        // Search
+        function searchModels() {
+            const query = document.getElementById('search-query').value;
+            if (!query) return;
+
+            document.getElementById('search-results').innerHTML = '<div class="help-text">🔍 Search feature coming soon!</div>';
+        }
+
+        // Chat
+        let currentStatusMessage = null;
+
+        function handleResponse(data) {
+            if (data.status === 'processing' || data.status === 'querying' || data.status === 'synthesizing') {
+                // Update or create a single status message
+                const statusText = data.status === 'processing' ? '⏳ ' + data.message :
+                    data.status === 'querying' ? '🔍 Querying ' + data.model + '...' :
+                        '🧠 ' + data.message;
+
+                if (!currentStatusMessage) {
+                    currentStatusMessage = document.createElement('div');
+                    currentStatusMessage.className = 'message status';
+                    document.getElementById('messages').appendChild(currentStatusMessage);
+                }
+
+                currentStatusMessage.textContent = statusText;
+                document.getElementById('messages').scrollTop = document.getElementById('messages').scrollHeight;
+
+            } else if (data.status === 'complete') {
+                // Remove status message and show final answer
+                if (currentStatusMessage) {
+                    currentStatusMessage.remove();
+                    currentStatusMessage = null;
+                }
+                addMessage(data.final_answer, 'ai');
+                isProcessing = false;
+                document.getElementById('send-btn').disabled = false;
+                document.getElementById('query-input').disabled = false;
+
+            } else if (data.status === 'error') {
+                // Remove status message and show error
+                if (currentStatusMessage) {
+                    currentStatusMessage.remove();
+                    currentStatusMessage = null;
+                }
+                addMessage('❌ ' + data.error, 'error');
+                isProcessing = false;
+                document.getElementById('send-btn').disabled = false;
+                document.getElementById('query-input').disabled = false;
+            }
+        }
+
+        function sendQuery() {
+            const query = document.getElementById('query-input').value.trim();
+            if (!query || isProcessing) return;
+
+            addMessage(query, 'user');
+
+            ws.send(JSON.stringify({
+                query: query,
+                online_models: selectedOnline,
+                offline_models: selectedOffline,
+                use_memory: true
+            }));
+
+            document.getElementById('query-input').value = '';
+            isProcessing = true;
+            document.getElementById('send-btn').disabled = true;
+        }
+
+        function addMessage(text, type) {
+            const div = document.createElement('div');
+            div.className = 'message ' + type;
+
+            // Format text with basic markdown support
+            let formatted = text
+                // Bold text
+                .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                // Line breaks
+                .replace(/\n/g, '<br>')
+                // Numbered lists
+                .replace(/^(\d+)\.\s+(.+)$/gm, '<div style="margin-left: 20px;">$1. $2</div>')
+                // Bullet points
+                .replace(/^[-•]\s+(.+)$/gm, '<div style="margin-left: 20px;">• $1</div>');
+
+            div.innerHTML = formatted;
+            document.getElementById('messages').appendChild(div);
+            document.getElementById('messages').scrollTop = document.getElementById('messages').scrollHeight;
+        }
+
+        // Init
+        document.getElementById('query-input').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter' && !isProcessing) sendQuery();
+        });
+
+        window.onload = () => {
+            loadSettings();
+            renderOnlineModels();
+            connect();
+        };
+    </script>
+</body>
+
+</html>

@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>AI Nexus WebSocket Demo</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        #chat-container {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        input, button {
+            padding: 10px;
+            margin: 5px 0;
+            width: 100%;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            cursor: pointer;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        #messages {
+            height: 400px;
+            overflow-y: auto;
+            border: 1px solid #ddd;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 5px;
+        }
+        .message {
+            margin: 5px 0;
+            padding: 5px;
+            border-left: 3px solid #007bff;
+            padding-left: 10px;
+        }
+        .status { color: #666; }
+        .response { background: #e3f2fd; }
+        .final { background: #c8e6c9; font-weight: bold; }
+        .error { background: #ffebee; color: #c62828; }
+    </style>
+</head>
+<body>
+    <div id="chat-container">
+        <h1>🤖 AI Nexus WebSocket Demo</h1>
+        <input type="text" id="query" placeholder="Enter your question..." value="What is machine learning?">
+        <button onclick="sendQuery()">Send Query</button>
+        <div id="messages"></div>
+        <button onclick="clearMessages()">Clear</button>
+    </div>
+
+    <script>
+        let ws = null;
+        const messagesDiv = document.getElementById('messages');
+
+        function connect() {
+            ws = new WebSocket('ws://localhost:8000/ws/chat');
+            
+            ws.onopen = () => {
+                addMessage('Connected to AI Nexus!', 'status');
+            };
+            
+            ws.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                const status = data.status;
+                
+                if (status === 'processing' || status === 'synthesizing') {
+                    addMessage(data.message, 'status');
+                } else if (status === 'querying') {
+                    addMessage(`Querying ${data.model}...`, 'status');
+                } else if (status === 'response') {
+                    const preview = data.content.substring(0, 100);
+                    addMessage(`${data.model}: ${preview}...`, 'response');
+                } else if (status === 'complete') {
+                    addMessage(`Final Answer: ${data.final_answer}`, 'final');
+                } else if (status === 'error') {
+                    addMessage(`Error: ${data.error}`, 'error');
+                }
+            };
+            
+            ws.onerror = (error) => {
+                addMessage('WebSocket error occurred', 'error');
+            };
+            
+            ws.onclose = () => {
+                addMessage('Disconnected', 'status');
+            };
+        }
+
+        function sendQuery() {
+            const query = document.getElementById('query').value;
+            if (!ws || ws.readyState !== WebSocket.OPEN) {
+                connect();
+                setTimeout(() => sendQuery(), 500);
+                return;
+            }
+            
+            const data = {
+                query: query,
+                online_models: [],
+                offline_models: ["llama3"],
+                use_memory: true
+            };
+            
+            addMessage(`You: ${query}`, 'status');
+            ws.send(JSON.stringify(data));
+        }
+
+        function addMessage(text, className) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${className}`;
+            messageDiv.textContent = text;
+            messagesDiv.appendChild(messageDiv);
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        }
+
+        function clearMessages() {
+            messagesDiv.innerHTML = '';
+        }
+
+        // Auto-connect on load
+        window.onload = connect;
+    </script>
+</body>
+</html>

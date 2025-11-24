@@ -1,10 +1,12 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel
 from typing import List, Optional, Dict, Any
 import uvicorn
 import asyncio
 import httpx
 import os
+import json
+from sse_starlette.sse import EventSourceResponse
 from llm_providers import fetch_openai, fetch_anthropic, fetch_gemini, fetch_perplexity, fetch_ollama, fetch_generic_openai_compatible
 from offline_model import synthesize_responses
 
@@ -43,6 +45,8 @@ def root():
             "models": "/models",
             "history": "/history",
             "chat": "/chat",
+            "ws_chat": "/ws/chat",
+            "stream_chat": "/stream/chat",
             "docs": "/docs"
         }
     }
@@ -169,6 +173,189 @@ async def chat_endpoint(request: ChatRequest):
             pass
             
     return ChatResponse(final_answer=final_answer, individual_responses=responses)
+
+# --- WebSocket Endpoint ---
+@app.websocket("/ws/chat")
+async def websocket_chat(websocket: WebSocket):
+    """
+    WebSocket endpoint for real-time chat.
+    
+    Client sends: {"query": "...", "online_models": [...], "offline_models": [...]}
+    Server streams: {"status": "...", "model": "...", "content": "..."}
+    """
+    await websocket.accept()
+    
+    try:
+        while True:
+            # Receive message
+            data = await websocket.receive_text()
+            request_data = json.loads(data)
+            
+            query = request_data.get("query")
+            online_models = request_data.get("online_models", [])
+            offline_models = request_data.get("offline_models", [])
+            use_memory = request_data.get("use_memory", True)
+            synthesizer_model = request_data.get("synthesizer_model", "llama3")
+            
+            # Send processing status
+            await websocket.send_json({"status": "processing", "message": "Processing query..."})
+            
+            # Retrieve context
+            context = ""
+            if MEMORY_AVAILABLE and use_memory:
+                try:
+                    context = retrieve_context(query)
+                except:
+                    pass
+            
+            # Query providers
+            responses = {}
+            async with httpx.AsyncClient() as client:
+                tasks = []
+                
+                # Online
+                if "ChatGPT (OpenAI)" in online_models:
+                    tasks.append(("ChatGPT", fetch_openai(query, client)))
+                if "Claude (Anthropic)" in online_models:
+                    tasks.append(("Claude", fetch_anthropic(query, client)))
+                if "Gemini (Google)" in online_models:
+                    tasks.append(("Gemini", fetch_gemini(query, client)))
+                if "Perplexity" in online_models:
+                    tasks.append(("Perplexity", fetch_perplexity(query, client)))
+                if "Free Web (g4f)" in online_models:
+                    from llm_providers import fetch_g4f
+                    tasks.append(("GPT-4 (Free)", fetch_g4f(query, "gpt_4", "GPT-4")))
+                    
+                # Offline
+                for model in offline_models:
+                    tasks.append((f"Ollama ({model})", fetch_ollama(query, model, client)))
+                    
+                # Execute and stream results
+                for name, coro in tasks:
+                    await websocket.send_json({"status": "querying", "model": name})
+                    try:
+                        res = await coro
+                        responses[name] = res
+                        await websocket.send_json({
+                            "status": "response", 
+                            "model": name,
+                            "content": res
+                        })
+                    except Exception as e:
+                        responses[name] = f"Error: {str(e)}"
+                        await websocket.send_json({
+                            "status": "error",
+                            "model": name,
+                            "error": str(e)
+                        })
+            
+            # Synthesize
+            await websocket.send_json({"status": "synthesizing", "message": "Synthesizing final answer..."})
+            final_answer = await synthesize_responses(
+                query, 
+                responses, 
+                context=context,
+                target_model=synthesizer_model
+            )
+            
+            # Save to memory
+            if MEMORY_AVAILABLE and use_memory:
+                try:
+                    add_to_memory(query, final_answer, "WebSocket-Synthesized")
+                except:
+                    pass
+            
+            # Send final response
+            await websocket.send_json({
+                "status": "complete",
+                "final_answer": final_answer,
+                "individual_responses": responses
+            })
+            
+    except WebSocketDisconnect:
+        print("WebSocket client disconnected")
+    except Exception as e:
+        await websocket.send_json({"status": "error", "error": str(e)})
+        await websocket.close()
+
+# --- Streaming Endpoint ---
+@app.post("/stream/chat")
+async def stream_chat(request: ChatRequest):
+    """
+    Streaming endpoint using Server-Sent Events.
+    Returns progressive updates as models respond.
+    """
+    async def event_generator():
+        # Retrieve context
+        context = ""
+        if MEMORY_AVAILABLE and request.use_memory:
+            try:
+                context = retrieve_context(request.query)
+            except:
+                pass
+        
+        yield {"event": "status", "data": json.dumps({"message": "Processing query..."})}
+        
+        # Query providers
+        responses = {}
+        async with httpx.AsyncClient() as client:
+            tasks = []
+            
+            # Online
+            if "ChatGPT (OpenAI)" in request.online_models:
+                tasks.append(("ChatGPT", fetch_openai(request.query, client)))
+            if "Claude (Anthropic)" in request.online_models:
+                tasks.append(("Claude", fetch_anthropic(request.query, client)))
+            if "Gemini (Google)" in request.online_models:
+                tasks.append(("Gemini", fetch_gemini(request.query, client)))
+            if "Perplexity" in request.online_models:
+                tasks.append(("Perplexity", fetch_perplexity(request.query, client)))
+            if "Free Web (g4f)" in request.online_models:
+                from llm_providers import fetch_g4f
+                tasks.append(("GPT-4 (Free)", fetch_g4f(request.query, "gpt_4", "GPT-4")))
+                
+            # Offline
+            for model in request.offline_models:
+                tasks.append((f"Ollama ({model})", fetch_ollama(request.query, model, client)))
+                
+            # Execute and stream
+            for name, coro in tasks:
+                yield {"event": "model", "data": json.dumps({"model": name, "status": "querying"})}
+                try:
+                    res = await coro
+                    responses[name] = res
+                    yield {"event": "response", "data": json.dumps({"model": name, "content": res})}
+                except Exception as e:
+                    responses[name] = f"Error: {str(e)}"
+                    yield {"event": "error", "data": json.dumps({"model": name, "error": str(e)})}
+        
+        # Synthesize
+        yield {"event": "status", "data": json.dumps({"message": "Synthesizing..."})}
+        target_model = request.synthesizer_model if request.synthesizer_model else "llama3"
+        final_answer = await synthesize_responses(
+            request.query, 
+            responses, 
+            context=context,
+            target_model=target_model
+        )
+        
+        # Save to memory
+        if MEMORY_AVAILABLE and request.use_memory:
+            try:
+                add_to_memory(request.query, final_answer, "Stream-Synthesized")
+            except:
+                pass
+        
+        # Send final
+        yield {
+            "event": "complete",
+            "data": json.dumps({
+                "final_answer": final_answer,
+                "individual_responses": responses
+            })
+        }
+    
+    return EventSourceResponse(event_generator())
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)
