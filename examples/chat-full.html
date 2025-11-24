@@ -510,6 +510,14 @@
             <!-- Settings Tab -->
             <div class="tab-panel" id="settings-panel">
                 <div class="setting-group">
+                    <label>🔗 Server URL (API)</label>
+                    <input type="text" id="api-url" placeholder="http://localhost:8000">
+                    <div style="font-size: 11px; color: #94a3b8; margin-top: 4px;">
+                        Use your computer's IP (e.g., http://192.168.1.5:8000) for mobile access.
+                    </div>
+                </div>
+
+                <div class="setting-group">
                     <label>🔑 OpenAI API Key</label>
                     <input type="password" id="openai-key" placeholder="sk-...">
                 </div>
@@ -569,26 +577,37 @@
         let selectedOffline = [];
         let networkNodes = [];
         let apiKeys = {};
+        let apiUrl = 'http://localhost:8000'; // Default
 
         // Load settings
         function loadSettings() {
             const saved = localStorage.getItem('ainexus-settings');
+
+            // Auto-detect API URL if not saved
+            const currentHost = window.location.hostname;
+            const defaultApiUrl = `http://${currentHost}:8000`;
+
             if (saved) {
                 const settings = JSON.parse(saved);
                 selectedOnline = settings.selectedOnline || [];
                 selectedOffline = settings.selectedOffline || [];
                 networkNodes = settings.networkNodes || [];
                 apiKeys = settings.apiKeys || {};
+                apiUrl = settings.apiUrl || defaultApiUrl;
 
                 document.getElementById('openai-key').value = apiKeys.openai || '';
                 document.getElementById('anthropic-key').value = apiKeys.anthropic || '';
                 document.getElementById('google-key').value = apiKeys.google || '';
                 document.getElementById('openrouter-key').value = apiKeys.openrouter || '';
+                document.getElementById('api-url').value = apiUrl;
 
                 renderNodes();
             } else {
                 selectedOnline = ["Free Web (g4f)"];
                 selectedOffline = [];
+                apiUrl = defaultApiUrl;
+                document.getElementById('api-url').value = apiUrl;
+
                 saveSettings();
                 setTimeout(() => {
                     showToast('👋 Welcome! Free Web (g4f) is ready to use.');
@@ -604,14 +623,26 @@
                 openrouter: document.getElementById('openrouter-key').value
             };
 
+            const newApiUrl = document.getElementById('api-url').value.replace(/\/$/, ''); // Remove trailing slash
+            const urlChanged = newApiUrl !== apiUrl;
+            apiUrl = newApiUrl;
+
             localStorage.setItem('ainexus-settings', JSON.stringify({
                 selectedOnline,
                 selectedOffline,
                 networkNodes,
-                apiKeys
+                apiKeys,
+                apiUrl
             }));
 
             showToast('✅ Settings saved successfully!');
+
+            if (urlChanged) {
+                showToast('🔄 Reconnecting to new server...');
+                if (ws) ws.close();
+                // connect() will be called by onclose handler or we can call it directly
+                // onclose has a timeout, so let's force it if it's not immediate
+            }
         }
 
         // Toast notification system
@@ -665,7 +696,13 @@
 
         // WebSocket
         function connect() {
-            ws = new WebSocket('ws://localhost:8000/ws/chat');
+            // Construct WS URL from API URL
+            let wsUrl = apiUrl.replace('http://', 'ws://').replace('https://', 'wss://');
+            wsUrl += '/ws/chat';
+
+            console.log("Connecting to:", wsUrl);
+
+            ws = new WebSocket(wsUrl);
 
             ws.onopen = () => {
                 document.getElementById('sidebar-status').textContent = '✓ Connected & Ready';
@@ -681,7 +718,7 @@
 
             ws.onerror = () => {
                 document.getElementById('sidebar-status').textContent = '✗ Connection Error';
-                addMessage('⚠️ Cannot connect to API. Make sure the server is running on localhost:8000', 'error');
+                addMessage(`⚠️ Cannot connect to API at ${apiUrl}. Check Settings > Server URL.`, 'error');
             };
 
             ws.onclose = () => {
@@ -697,10 +734,11 @@
             renderOnlineModels();
 
             try {
-                const response = await fetch('http://localhost:8000/models');
+                const response = await fetch(`${apiUrl}/models`);
                 const data = await response.json();
                 renderOfflineModels(data.offline || []);
             } catch (error) {
+                console.error("Failed to fetch models:", error);
                 renderOfflineModels([]);
             }
         }
