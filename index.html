@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Nexus - Multi-AI Chat Platform</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 900px;
+            width: 100%;
+        }
+
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: 40px;
+        }
+
+        .header h1 {
+            font-size: 48px;
+            margin-bottom: 12px;
+            font-weight: 800;
+        }
+
+        .header p {
+            font-size: 18px;
+            opacity: 0.95;
+        }
+
+        .options {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 24px;
+            margin-bottom: 30px;
+        }
+
+        .option-card {
+            background: white;
+            border-radius: 16px;
+            padding: 32px;
+            text-align: center;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
+            transition: all 0.3s ease;
+            cursor: pointer;
+            text-decoration: none;
+            color: inherit;
+            display: block;
+        }
+
+        .option-card:hover {
+            transform: translateY(-8px);
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.25);
+        }
+
+        .option-icon {
+            font-size: 64px;
+            margin-bottom: 16px;
+        }
+
+        .option-title {
+            font-size: 24px;
+            font-weight: 700;
+            color: #1e293b;
+            margin-bottom: 12px;
+        }
+
+        .option-description {
+            font-size: 14px;
+            color: #64748b;
+            line-height: 1.6;
+            margin-bottom: 20px;
+        }
+
+        .option-badge {
+            display: inline-block;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            margin-top: 8px;
+        }
+
+        .badge-recommended {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+        }
+
+        .features {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            padding: 20px;
+            color: white;
+            backdrop-filter: blur(10px);
+        }
+
+        .features h3 {
+            font-size: 18px;
+            margin-bottom: 16px;
+            text-align: center;
+        }
+
+        .features ul {
+            list-style: none;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 12px;
+        }
+
+        .features li {
+            font-size: 14px;
+            padding-left: 20px;
+            position: relative;
+        }
+
+        .features li:before {
+            content: "✓";
+            position: absolute;
+            left: 0;
+            font-weight: bold;
+        }
+
+        .quick-status {
+            text-align: center;
+            margin-top: 20px;
+            color: white;
+            font-size: 14px;
+        }
+
+        .status-dot {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            margin-right: 6px;
+            animation: pulse 2s infinite;
+        }
+
+        .status-online {
+            background: #10b981;
+        }
+
+        .status-offline {
+            background: #ef4444;
+        }
+
+        @keyframes pulse {
+
+            0%,
+            100% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0.5;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🤖 AI Nexus</h1>
+            <p>Choose your preferred interface</p>
+        </div>
+
+        <div class="options">
+            <a href="http://localhost:8501" target="_blank" class="option-card" id="desktop-app">
+                <div class="option-icon">🖥️</div>
+                <div class="option-title">Desktop App</div>
+                <div class="option-description">
+                    Full-featured Streamlit interface with advanced controls, model discovery, and memory management.
+                </div>
+                <span class="option-badge">Power Users</span>
+                <div id="desktop-status" class="quick-status"></div>
+            </a>
+
+            <a href="examples/chat-full.html" class="option-card">
+                <div class="option-icon">💬</div>
+                <div class="option-title">Web Chat</div>
+                <div class="option-description">
+                    Beautiful, modern chat interface with model selection, settings, and persistent preferences.
+                </div>
+                <span class="option-badge badge-recommended">Recommended</span>
+                <div id="chat-status" class="quick-status"></div>
+            </a>
+        </div>
+
+        <div class="features">
+            <h3>✨ Platform Features</h3>
+            <ul>
+                <li>Multiple AI models</li>
+                <li>Real-time WebSocket</li>
+                <li>Smart synthesis</li>
+                <li>Memory learning</li>
+                <li>Network nodes</li>
+                <li>Model discovery</li>
+                <li>Mobile support</li>
+                <li>Free models (no API keys)</li>
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        // Check if services are running
+        async function checkStatus() {
+            // Check desktop app (Streamlit)
+            try {
+                const response = await fetch('http://localhost:8501', { method: 'HEAD', mode: 'no-cors' });
+                document.getElementById('desktop-status').innerHTML =
+                    '<span class="status-dot status-online"></span>Online';
+            } catch {
+                document.getElementById('desktop-status').innerHTML =
+                    '<span class="status-dot status-offline"></span>Run ./run.sh to start';
+            }
+
+            // Check API (for chat)
+            try {
+                const response = await fetch('http://localhost:8000/health');
+                if (response.ok) {
+                    document.getElementById('chat-status').innerHTML =
+                        '<span class="status-dot status-online"></span>Ready';
+                } else {
+                    throw new Error('API not ready');
+                }
+            } catch {
+                document.getElementById('chat-status').innerHTML =
+                    '<span class="status-dot status-offline"></span>Run ./run.sh to start';
+            }
+        }
+
+        checkStatus();
+        setInterval(checkStatus, 5000); // Recheck every 5 seconds
+    </script>
+</body>
+
+</html>

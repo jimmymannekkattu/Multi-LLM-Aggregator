@@ -1,45 +1,53 @@
 #!/bin/bash
 
 # AI Nexus - One-Click Startup Script
+echo "🤖 Starting AI Nexus..."
 
-# Colors
-GREEN='\033[0;32m'
-BLUE='\033[0;34m'
-NC='\033[0m' # No Color
-
-echo -e "${BLUE}🚀 Starting AI Nexus...${NC}"
-
-# 1. Check/Create Virtual Environment
+# Create venv if it doesn't exist
 if [ ! -d "venv" ]; then
-    echo -e "${BLUE}📦 Creating virtual environment...${NC}"
+    echo "📦 Creating virtual environment..."
     python3 -m venv venv
-    source venv/bin/activate
-    echo -e "${BLUE}⬇️ Installing dependencies...${NC}"
-    pip install -r requirements.txt
-else
-    source venv/bin/activate
 fi
 
-# 2. Start Backend (FastAPI) in background
-echo -e "${GREEN}🔌 Starting Backend API (Port 8000)...${NC}"
-uvicorn api:app --host 0.0.0.0 --port 8000 &
-BACKEND_PID=$!
+# Activate venv
+source venv/bin/activate
 
-# Wait a moment for backend to initialize
-sleep 2
+# Install dependencies
+echo "📥 Installing dependencies..."
+pip install -q -r requirements.txt
 
-# 3. Start Frontend (Streamlit)
-echo -e "${GREEN}🖥️ Starting Frontend UI (Port 8501)...${NC}"
-streamlit run app.py &
-FRONTEND_PID=$!
+# Start backend API in background
+echo "🚀 Starting API server..."
+uvicorn api:app --host 0.0.0.0 --port 8000 --reload > /dev/null 2>&1 &
+API_PID=$!
 
-echo -e "${BLUE}✅ AI Nexus is running!${NC}"
-echo -e "   - Desktop App: http://localhost:8501"
-echo -e "   - Mobile API:  http://localhost:8000"
-echo -e "${BLUE}Press Ctrl+C to stop all services.${NC}"
+# Start Streamlit in background
+echo "🎨 Starting Desktop App..."
+streamlit run app.py --server.headless=true > /dev/null 2>&1 &
+STREAMLIT_PID=$!
 
-# 4. Handle Shutdown
-trap "kill $BACKEND_PID $FRONTEND_PID; exit" SIGINT SIGTERM
+# Give services time to start
+sleep 3
 
-# Keep script running
+echo ""
+echo "✅ AI Nexus is running!"
+echo ""
+echo "📍 Choose your interface:"
+echo "   Landing Page: file://$(pwd)/index.html"
+echo "   Desktop App:  http://localhost:8501"
+echo "   Web Chat:     file://$(pwd)/examples/chat-full.html"
+echo "   API Docs:     http://localhost:8000/docs"
+echo ""
+
+# Open landing page
+if command -v xdg-open > /dev/null; then
+    xdg-open "$(pwd)/index.html" 2>/dev/null
+elif command -v open > /dev/null; then
+    open "$(pwd)/index.html" 2>/dev/null
+fi
+
+echo "Press Ctrl+C to stop all services"
+
+# Wait for interrupt
+trap "kill $API_PID $STREAMLIT_PID 2>/dev/null; echo ''; echo '👋 AI Nexus stopped'; exit" INT
 wait
