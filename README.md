@@ -23,15 +23,21 @@ chmod +x run.sh
 ./run.sh
 ```
 
-### Step 3: Start Chatting!
+### Step 3: Choose Your Interface!
 
-**Three Ways to Use AI Nexus:**
+The **AI Nexus Portal** (`index.html`) will open automatically, showing you two options:
 
-1. **🖥️ Desktop App** - Open browser: http://localhost:8501
-2. **💬 Web Chat** - Open file: `examples/chat-full.html`  
-3. **📱 Mobile App** - Scan QR code from desktop app
+**Option A: 🖥️ Desktop App** (Power Users)
+- Full-featured Streamlit interface
+- Advanced controls, discovery, memory management
+- URL: http://localhost:8501
 
-**That's it!** AI Nexus is now running with free models. No API keys needed to start!
+**Option B: 💬 Web Chat** (Recommended)
+- Modern, beautiful chat interface
+- Settings, model selection, persistent preferences
+- File: `examples/chat-full.html`
+
+**That's it!** AI Nexus is running with free models. No API keys needed to start!
 
 ---
 
