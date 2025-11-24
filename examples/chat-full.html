@@ -733,7 +733,26 @@
 
             ws.onerror = () => {
                 document.getElementById('sidebar-status').textContent = '✗ Connection Error';
-                addMessage(`⚠️ Cannot connect to API at ${apiUrl}. Check Settings > Server URL.`, 'error');
+
+                // Aggressive Fallback: If we failed on localhost, try the current hostname
+                if (apiUrl.includes('localhost') || apiUrl.includes('127.0.0.1')) {
+                    const currentHost = window.location.hostname;
+                    if (currentHost !== 'localhost' && currentHost !== '127.0.0.1') {
+                        console.log("Localhost connection failed. Retrying with current host:", currentHost);
+                        addMessage(`⚠️ Connection to localhost failed. Retrying with ${currentHost}...`, 'status');
+
+                        // Update API URL
+                        apiUrl = `http://${currentHost}:8000`;
+                        document.getElementById('api-url').value = apiUrl;
+                        saveSettings(); // Save the new working URL
+
+                        // Retry connection immediately
+                        setTimeout(connect, 1000);
+                        return;
+                    }
+                }
+
+                addMessage(`⚠️ Cannot connect to API at <b>${apiUrl}</b>.<br>Check Settings > Server URL.<br>Make sure the server is running.`, 'error');
             };
 
             ws.onclose = () => {
