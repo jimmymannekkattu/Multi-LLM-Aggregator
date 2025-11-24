@@ -19,6 +19,24 @@ def get_local_ip():
         s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         s.connect(("8.8.8.8", 80))
         ip = s.getsockname()[0]
+        s.close()
+        return ip
+    except:
+        return "127.0.0.1"
+
+# Page Config
+st.set_page_config(
+    page_title="AI Nexus",
+    page_icon="🤖",
+    layout="wide"
+)
+
+# Initialize Session State
+import json
+import os
+
+PROVIDERS_FILE = "custom_providers.json"
+
 def load_providers():
     if os.path.exists(PROVIDERS_FILE):
         try:
