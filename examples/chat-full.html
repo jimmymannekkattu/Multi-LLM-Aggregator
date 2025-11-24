@@ -250,6 +250,33 @@
             font-weight: 600;
         }
 
+        /* Search Box */
+        .search-box {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 16px;
+        }
+
+        .search-box input {
+            flex: 1;
+            padding: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            background: rgba(255, 255, 255, 0.05);
+            color: white;
+            font-size: 14px;
+        }
+
+        .search-box button {
+            padding: 12px 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 18px;
+        }
+
         .node-item {
             padding: 12px;
             background: rgba(255, 255, 255, 0.05);
@@ -259,6 +286,19 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
+        }
+
+        /* Empty State */
+        .empty-state {
+            padding: 30px 20px;
+            text-align: center;
+            color: #94a3b8;
+        }
+
+        .empty-state-icon {
+            font-size: 48px;
+            margin-bottom: 10px;
+            opacity: 0.5;
         }
 
         /* Main Chat Area */
@@ -350,6 +390,41 @@
             border-bottom-left-radius: 4px;
         }
 
+        .message.status {
+            background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
+            color: #78350f;
+            margin: 0 auto;
+            text-align: center;
+            max-width: 60%;
+            font-size: 13px;
+            font-weight: 600;
+            padding: 8px 16px;
+        }
+
+        .message.error {
+            background: linear-gradient(135deg, #fca5a5 0%, #ef4444 100%);
+            color: #7f1d1d;
+            margin: 0 auto;
+            text-align: center;
+            max-width: 70%;
+            font-size: 14px;
+            font-weight: 600;
+            padding: 10px 16px;
+            border: 1px solid #dc2626;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
         .input-area {
             padding: 16px;
             background: white;
@@ -380,6 +455,37 @@
             cursor: pointer;
             font-weight: 700;
             font-size: 16px;
+        }
+
+        /* Toast Notifications */
+        .toast {
+            position: fixed;
+            bottom: 100px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(30, 41, 59, 0.95);
+            backdrop-filter: blur(10px);
+            color: white;
+            padding: 12px 24px;
+            border-radius: 12px;
+            font-size: 14px;
+            font-weight: 600;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+            z-index: 10000;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            animation: slideUp 0.3s ease;
+        }
+
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateX(-50%) translateY(20px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateX(-50%) translateY(0);
+            }
         }
 
         /* Mobile Overlay */
@@ -802,7 +908,7 @@
         // Search Models (Discovery)
         function searchModels() {
             const query = document.getElementById('search-query').value.toLowerCase();
-            const container = document.getElementById('discovery-results');
+            const container = document.getElementById('search-results');
             container.innerHTML = '';
 
             if (!query) {
@@ -833,8 +939,9 @@
             results.forEach(m => {
                 const div = document.createElement('div');
                 div.className = 'model-card';
+                div.style.cursor = 'default'; // Don't make the whole card clickable like in Models tab
                 div.innerHTML = `
-                    <div class="model-card-content">
+                    <div class="model-card-content" style="flex: 1;">
                         <span class="model-name">
                             ${m.name}
                             <span class="model-badge ${m.type === 'free' ? 'badge-free' : 'badge-api'}">
@@ -842,7 +949,20 @@
                             </span>
                         </span>
                     </div>
-                    <button onclick="addModelFromDiscovery('${m.name}', '${m.type}')" style="padding: 5px 10px; border-radius: 12px; border: 1px solid #ddd; background: white; cursor: pointer;">Add</button>
+                    <button onclick="addModelFromDiscovery('${m.name}', '${m.type}')" 
+                            style="padding: 8px 16px; 
+                                   border-radius: 8px; 
+                                   border: 1px solid rgba(255, 255, 255, 0.2); 
+                                   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
+                                   color: white;
+                                   cursor: pointer; 
+                                   font-weight: 600;
+                                   font-size: 13px;
+                                   transition: all 0.2s;"
+                            onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 12px rgba(102, 126, 234, 0.4)';"
+                            onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='none';">
+                        Add
+                    </button>
                 `;
                 container.appendChild(div);
             });
@@ -917,12 +1037,20 @@
                 return;
             }
 
+            // Normalize models to always have name and size
+            const normalizedModels = models.map(m => {
+                if (typeof m === 'string') {
+                    return { name: m, size: 0 };
+                }
+                return m;
+            });
+
             // Auto-select first if none selected
-            if (selectedOffline.length === 0 && models.length > 0) {
-                // Optional: selectedOffline.push(models[0].name);
+            if (selectedOffline.length === 0 && normalizedModels.length > 0) {
+                // Optional: selectedOffline.push(normalizedModels[0].name);
             }
 
-            models.forEach(m => {
+            normalizedModels.forEach(m => {
                 const div = document.createElement('div');
                 div.className = `model-card ${selectedOffline.includes(m.name) ? 'selected' : ''}`;
                 div.onclick = (e) => {
@@ -933,6 +1061,10 @@
                     }
                 };
 
+                const sizeDisplay = m.size > 0
+                    ? `<span style="font-size: 11px; color: #94a3b8;">${(m.size / 1024 / 1024 / 1024).toFixed(1)} GB</span>`
+                    : '';
+
                 div.innerHTML = `
                     <input type="checkbox" ${selectedOffline.includes(m.name) ? 'checked' : ''} 
                         onclick="event.stopPropagation(); toggleOfflineModel('${m.name}')">
@@ -941,7 +1073,7 @@
                             ${m.name}
                             <span class="model-badge badge-free">LOCAL</span>
                         </span>
-                        <span style="font-size: 11px; color: #94a3b8;">${(m.size / 1024 / 1024 / 1024).toFixed(1)} GB</span>
+                        ${sizeDisplay}
                     </div>
                 `;
                 container.appendChild(div);
@@ -1085,6 +1217,11 @@
             if (e.key === 'Enter') sendQuery();
         });
 
+        // Handle Enter key for search
+        document.getElementById('search-query').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') searchModels();
+        });
+
         function addMessage(text, type, id = null) {
             const container = document.getElementById('messages');
             const div = document.createElement('div');
@@ -1102,18 +1239,47 @@
         }
 
         function handleResponse(data) {
-            // Remove status message if it exists
-            const statusMsgs = document.querySelectorAll('.message.status');
-            statusMsgs.forEach(el => el.remove());
+            console.log('Received:', data); // Debug logging
 
-            if (data.type === 'status') {
-                // Update status (optional, maybe a small indicator)
-                // For now we just show the final result or errors
-            } else if (data.type === 'response') {
-                const source = data.model ? `\n\n<small style="color: #64748b">via ${data.model}</small>` : '';
-                addMessage(data.content + source, 'ai');
-            } else if (data.type === 'error') {
-                addMessage(data.content, 'error');
+            // Handle different message types based on 'status' field
+            if (data.status === 'processing' || data.status === 'querying') {
+                // Show status message
+                const statusMsgs = document.querySelectorAll('.message.status');
+                statusMsgs.forEach(el => el.remove());
+
+                const message = data.message || `Querying ${data.model || 'models'}...`;
+                addMessage(message, 'status', 'current-status');
+
+            } else if (data.status === 'synthesizing') {
+                // Update status for synthesis
+                const statusMsgs = document.querySelectorAll('.message.status');
+                statusMsgs.forEach(el => el.remove());
+
+                addMessage('🧠 Synthesizing final answer...', 'status', 'current-status');
+
+            } else if (data.status === 'response') {
+                // Individual model response
+                const source = data.model ? `<small style="color: #64748b; font-size: 11px;"> • ${data.model}</small>` : '';
+                addMessage(`<strong style="color: #667eea;">Response:</strong> ${data.content}${source}`, 'ai');
+
+            } else if (data.status === 'complete') {
+                // Remove all status messages
+                const statusMsgs = document.querySelectorAll('.message.status');
+                statusMsgs.forEach(el => el.remove());
+
+                // Add final answer
+                if (data.final_answer) {
+                    addMessage(`<strong style="color: #10b981;">✓ Final Answer:</strong><br><br>${data.final_answer}`, 'ai');
+                }
+
+            } else if (data.status === 'error') {
+                // Remove status messages
+                const statusMsgs = document.querySelectorAll('.message.status');
+                statusMsgs.forEach(el => el.remove());
+
+                const errorMsg = data.error || data.message || 'An error occurred';
+                const source = data.model ? ` (${data.model})` : '';
+                addMessage(`⚠️ Error${source}: ${errorMsg}`, 'error');
             }
         }
 

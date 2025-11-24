@@ -71,14 +71,21 @@ async def get_models():
     """Fetch available models (Online & Local Ollama)"""
     online = ["Free Web (g4f)", "ChatGPT (OpenAI)", "Claude (Anthropic)", "Gemini (Google)", "Perplexity"]
     
+    # Import config for Ollama URL  
+    try:
+        from config import get_ollama_tags_url
+        ollama_tags_url = get_ollama_tags_url()
+    except ImportError:
+        ollama_tags_url = "http://localhost:11434/api/tags"
+    
     offline = []
     try:
         async with httpx.AsyncClient() as client:
-            resp = await client.get("http://localhost:11434/api/tags", timeout=2.0)
+            resp = await client.get(ollama_tags_url, timeout=2.0)
             if resp.status_code == 200:
                 offline = [m["name"] for m in resp.json()["models"]]
-    except:
-        pass
+    except Exception as e:
+        print(f"Warning: Could not fetch Ollama models from {ollama_tags_url}: {e}")
         
     return {"online": online, "offline": offline}
 

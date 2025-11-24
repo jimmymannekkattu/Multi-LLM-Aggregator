@@ -4,9 +4,17 @@ import json
 import os
 from datetime import datetime
 
-# Initialize ChromaDB
-# Persistent storage in 'memory_db' folder
-chroma_client = chromadb.PersistentClient(path="./memory_db")
+# Import centralized config for portability
+try:
+    from config import MEMORY_DB_PATH, ensure_directories
+    ensure_directories()
+except ImportError:
+    # Fallback if config.py doesn't exist (backwards compatibility)
+    MEMORY_DB_PATH = "./memory_db"
+    os.makedirs(MEMORY_DB_PATH, exist_ok=True)
+
+# Initialize ChromaDB with configurable path
+chroma_client = chromadb.PersistentClient(path=MEMORY_DB_PATH)
 
 # Use a standard embedding model
 sentence_transformer_ef = embedding_functions.SentenceTransformerEmbeddingFunction(model_name="all-MiniLM-L6-v2")

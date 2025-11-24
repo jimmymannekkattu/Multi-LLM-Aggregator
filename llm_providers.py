@@ -7,8 +7,16 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-# Timeout for API calls
-TIMEOUT = 30.0
+# Import centralized config for portability
+try:
+    from config import API_TIMEOUT, get_ollama_generate_url, OLLAMA_TIMEOUT
+    TIMEOUT = API_TIMEOUT
+    OLLAMA_URL = get_ollama_generate_url()
+except ImportError:
+    # Fallback for backwards compatibility
+    TIMEOUT = 30.0
+    OLLAMA_URL = "http://localhost:11434/api/generate"
+    OLLAMA_TIMEOUT = 60.0
 
 async def fetch_g4f(query: str, model: str, provider_name: str):
     """
@@ -136,17 +144,17 @@ async def fetch_perplexity(query: str, client: httpx.AsyncClient):
 
 async def fetch_ollama(query: str, model: str, client: httpx.AsyncClient):
     """
-    Fetch response from local Ollama instance.
+    Fetch response from Ollama instance (local or remote).
     """
     try:
         response = await client.post(
-            "http://localhost:11434/api/generate",
+            OLLAMA_URL,
             json={
                 "model": model,
                 "prompt": query,
                 "stream": False
             },
-            timeout=60.0 # Longer timeout for local models
+            timeout=OLLAMA_TIMEOUT
         )
         response.raise_for_status()
         return response.json()["response"]

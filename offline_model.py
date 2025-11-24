@@ -1,8 +1,17 @@
 import httpx
 import json
 
-OLLAMA_URL = "http://localhost:11434/api/generate"
-MODEL_NAME = "llama3" # Or 'mistral', 'llama2', etc.
+# Import centralized config for portability
+try:
+    from config import get_ollama_generate_url, OLLAMA_TIMEOUT
+    OLLAMA_URL = get_ollama_generate_url()
+    MODEL_NAME = "llama3"  # Default model
+    TIMEOUT = OLLAMA_TIMEOUT
+except ImportError:
+    # Fallback for backwards compatibility
+    OLLAMA_URL = "http://localhost:11434/api/generate"
+    MODEL_NAME = "llama3"
+    TIMEOUT = 60.0
 
 async def synthesize_responses(query: str, responses: dict, context: str = "", target_url: str = OLLAMA_URL, target_model: str = MODEL_NAME):
     """

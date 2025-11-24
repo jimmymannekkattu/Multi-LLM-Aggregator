@@ -57,7 +57,7 @@ fi
 
 # Install dependencies
 echo "📥 Installing dependencies..."
-$PIP_CMD install -r requirements.txt
+pip install -r requirements.txt
 
 # Create directory for g4f cookies (prevents errors)
 mkdir -p har_and_cookies
