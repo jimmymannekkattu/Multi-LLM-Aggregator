@@ -1,0 +1,54 @@
+version: '3.8'
+
+services:
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ai_nexus_ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    # Uncomment the following section to enable GPU support (requires NVIDIA Container Toolkit)
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: 1
+    #           capabilities: [gpu]
+    restart: unless-stopped
+
+  backend:
+    build: .
+    container_name: ai_nexus_backend
+    command: uvicorn api:app --host 0.0.0.0 --port 8000
+    ports:
+      - "8000:8000"
+    environment:
+      - OLLAMA_HOST=http://ollama:11434
+    depends_on:
+      - ollama
+    volumes:
+      - .:/app
+      - memory_db:/app/memory_db
+    restart: unless-stopped
+
+  frontend:
+    build: .
+    container_name: ai_nexus_frontend
+    command: streamlit run app.py --server.port=8501 --server.address=0.0.0.0
+    ports:
+      - "8501:8501"
+    environment:
+      - OLLAMA_HOST=http://ollama:11434
+    depends_on:
+      - ollama
+      - backend
+    volumes:
+      - .:/app
+      - memory_db:/app/memory_db
+    restart: unless-stopped
+
+volumes:
+  ollama_data:
+  memory_db:

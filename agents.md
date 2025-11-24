@@ -68,12 +68,65 @@ User Input → get_all_responses() → synthesize_responses() → Display
 
 **Purpose**: Exposes the core logic to external clients (Mobile App).
 
-**Key Endpoints**:
-- `POST /chat`: Unified entry point for queries. Accepts model selection and memory flags.
-- `GET /history`: Retrieves full chat history from the Memory Agent.
-- `GET /models`: Lists available models (Online & Offline).
-
 **Technology**: FastAPI + Uvicorn.
+
+**Key Endpoints**:
+
+#### `POST /chat`
+- **Description**: Unified entry point for queries.
+- **Request Body**:
+  ```json
+  {
+    "query": "What is quantum computing?",
+    "online_models": ["ChatGPT (OpenAI)", "Claude (Anthropic)"],
+    "offline_models": ["llama3"],
+    "use_memory": true,
+    "synthesizer_model": "llama3"
+  }
+  ```
+- **Response**:
+  ```json
+  {
+    "final_answer": "Quantum computing is...",
+    "individual_responses": {
+        "ChatGPT": "...",
+        "Claude": "..."
+    }
+  }
+  ```
+
+#### `GET /history`
+- **Description**: Retrieves full chat history from the Memory Agent (ChromaDB).
+- **Response**: List of past queries and answers, sorted by newest first.
+
+#### `GET /models`
+- **Description**: Lists available models.
+- **Response**:
+  ```json
+  {
+    "online": ["ChatGPT (OpenAI)", ...],
+    "offline": ["llama3", "mistral"]
+  }
+  ```
+
+### 3. Mobile App Architecture (`mobile/`)
+
+**Purpose**: A React Native application that serves as a remote interface for the AI Nexus system.
+
+**Tech Stack**: React Native (Expo), Async Storage.
+
+**Key Components**:
+- **Chat Interface**: Real-time chat with the swarm.
+- **Settings**:
+  - **Server URL**: Configurable connection to the PC (e.g., `http://192.168.1.5:8000`).
+  - **Model Selection**: Toggle online and offline models remotely.
+  - **QR Scanner**: Quickly connect to the desktop app by scanning the QR code.
+- **History View**: Browse past conversations synced from the central memory.
+
+**State Management**:
+- Uses `useState` for local UI state.
+- Uses `AsyncStorage` to persist the Server URL.
+
 
 ### 3. LLM Provider System (`llm_providers.py`)
 

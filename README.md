@@ -100,7 +100,8 @@ uvicorn api:app --host 0.0.0.0 --port 8000 --reload
     - Windows: Run `ipconfig` (look for IPv4 Address).
     - Mac/Linux: Run `ifconfig` (look for inet 192.168...).
     - Enter: `http://YOUR_IP_ADDRESS:8000` (e.g., `http://192.168.1.15:8000`).
-3.  Go to **Chat** and start asking questions!
+3.  **Select Models**: Go to the **Settings** tab in the mobile app to select which Online and Offline models you want to use.
+4.  Go to **Chat** and start asking questions!
 
 ---
 
@@ -285,6 +286,32 @@ The app will automatically detect and use Ollama if available. Otherwise, it fal
     - Deploy!
 
 The app will work on Streamlit Cloud even without API keys, using the free web access.
+
+### Docker / Podman Support
+
+You can run the entire stack (Frontend, Backend, and Local AI) using Docker or Podman.
+
+**Prerequisites**:
+- [Docker Desktop](https://www.docker.com/products/docker-desktop/) or [Podman](https://podman.io/)
+- [Docker Compose](https://docs.docker.com/compose/install/) (usually included)
+
+**Running with Docker Compose**:
+
+```bash
+# Build and start services
+docker-compose up --build -d
+
+# View logs
+docker-compose logs -f
+```
+
+**Access**:
+- **Desktop App**: `http://localhost:8501`
+- **Mobile API**: `http://localhost:8000`
+- **Ollama**: `http://localhost:11434`
+
+**Note**: The first run will pull the Ollama image and build the app container, which may take a few minutes. To use GPU with Ollama, uncomment the `deploy` section in `docker-compose.yml` and ensure you have the NVIDIA Container Toolkit installed.
+
 
 ## 📁 Project Structure
 
