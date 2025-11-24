@@ -82,99 +82,139 @@ def render_landing_page():
     # Custom CSS for Landing Page
     st.markdown("""
     <style>
+        /* Global Reset & Fonts */
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap');
+        
+        html, body, [class*="css"] {
+            font-family: 'Inter', sans-serif;
+        }
+
+        /* Landing Page Container */
         .landing-container {
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            padding: 50px 20px;
+            padding: 80px 20px;
             text-align: center;
+            background: radial-gradient(circle at center, #1e293b 0%, #0f172a 100%);
+            border-radius: 20px;
+            margin-bottom: 30px;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.3);
         }
+
+        /* Header Styling */
         .landing-header h1 {
-            font-size: 3.5rem;
+            font-size: 4rem;
             font-weight: 800;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, #60a5fa 0%, #a855f7 100%);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
-            margin-bottom: 10px;
+            margin-bottom: 15px;
+            letter-spacing: -1px;
         }
+        
         .landing-header p {
-            font-size: 1.2rem;
-            color: #a0aec0;
-            margin-bottom: 50px;
-        }
-        .cards-container {
-            display: flex;
-            gap: 30px;
-            flex-wrap: wrap;
-            justify-content: center;
-        }
-        .card {
-            background: #1a202c;
-            border: 1px solid #2d3748;
-            border-radius: 20px;
-            padding: 40px;
-            width: 320px;
-            text-align: center;
-            transition: all 0.3s ease;
-            cursor: pointer;
-            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
-        }
-        .card:hover {
-            transform: translateY(-10px);
-            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.2);
-            border-color: #667eea;
-        }
-        .card-icon {
-            font-size: 4rem;
-            margin-bottom: 20px;
-        }
-        .card-title {
-            font-size: 1.5rem;
-            font-weight: 700;
-            color: #fff;
-            margin-bottom: 10px;
-        }
-        .card-desc {
-            color: #a0aec0;
-            font-size: 0.95rem;
+            font-size: 1.3rem;
+            color: #94a3b8;
+            margin-bottom: 60px;
+            max-width: 600px;
+            margin-left: auto;
+            margin-right: auto;
             line-height: 1.6;
+        }
+
+        /* Card Styling */
+        .card {
+            background: rgba(30, 41, 59, 0.7);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 24px;
+            padding: 40px 30px;
+            height: 100%;
+            text-align: center;
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .card::before {
+            content: "";
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 4px;
+            background: linear-gradient(90deg, #60a5fa, #a855f7);
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .card:hover {
+            transform: translateY(-8px);
+            box-shadow: 0 20px 40px -5px rgba(0, 0, 0, 0.4);
+            border-color: rgba(168, 85, 247, 0.4);
+        }
+
+        .card:hover::before {
+            opacity: 1;
+        }
+
+        .card-icon {
+            font-size: 3.5rem;
             margin-bottom: 25px;
+            background: rgba(255,255,255,0.05);
+            width: 100px;
+            height: 100px;
+            line-height: 100px;
+            border-radius: 50%;
+            margin-left: auto;
+            margin-right: auto;
         }
-        .card-btn {
-            display: inline-block;
-            padding: 10px 25px;
-            border-radius: 50px;
+
+        .card-title {
+            font-size: 1.8rem;
+            font-weight: 700;
+            color: #f8fafc;
+            margin-bottom: 15px;
+        }
+
+        .card-desc {
+            color: #cbd5e1;
+            font-size: 1rem;
+            line-height: 1.6;
+            margin-bottom: 30px;
+        }
+
+        /* Streamlit Button Overrides for this page */
+        div.stButton > button {
+            width: 100%;
+            border-radius: 12px;
+            padding: 0.75rem 1rem;
             font-weight: 600;
-            text-decoration: none;
+            font-size: 1rem;
             transition: all 0.2s;
-        }
-        .btn-primary {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-        }
-        .btn-secondary {
-            background: #2d3748;
-            color: white;
         }
     </style>
     """, unsafe_allow_html=True)
 
-    st.markdown('<div class="landing-container"><div class="landing-header"><h1>🤖 AI Nexus Portal</h1><p>Choose your preferred interface to get started</p></div></div>', unsafe_allow_html=True)
+    st.markdown('<div class="landing-container"><div class="landing-header"><h1>🤖 AI Nexus Portal</h1><p>Your gateway to advanced AI aggregation. Choose your preferred interface to begin your journey.</p></div></div>', unsafe_allow_html=True)
 
-    col1, col2, col3 = st.columns([1, 2, 1])
+    # Centering layout
+    _, col_main, _ = st.columns([1, 4, 1])
     
-    with col2:
-        c1, c2 = st.columns(2)
+    with col_main:
+        c1, c2 = st.columns(2, gap="large")
         
         with c1:
             st.markdown("""
             <div class="card">
                 <div class="card-icon">🖥️</div>
                 <div class="card-title">Desktop App</div>
-                <div class="card-desc">Full-featured control panel with advanced settings, discovery, and memory management.</div>
+                <div class="card-desc">Power-user control panel. Manage models, configure network nodes, and access advanced memory features.</div>
             </div>
             """, unsafe_allow_html=True)
+            st.write("") # Spacer
             if st.button("Launch Desktop App", use_container_width=True, type="primary"):
                 go_to_app()
 
@@ -183,18 +223,20 @@ def render_landing_page():
             <div class="card">
                 <div class="card-icon">💬</div>
                 <div class="card-title">Web Chat</div>
-                <div class="card-desc">Modern, beautiful chat interface with persistent settings and model selection.</div>
+                <div class="card-desc">Sleek, modern chat interface. Perfect for quick conversations, persistent history, and easy model switching.</div>
             </div>
             """, unsafe_allow_html=True)
+            st.write("") # Spacer
             if st.button("Launch Web Chat", use_container_width=True, type="primary"):
                 go_to_chat()
 
 def render_web_chat():
     # Sidebar navigation
     with st.sidebar:
-        if st.button("⬅️ Back to Portal"):
+        st.title("Navigation")
+        if st.button("🏠 Back to Portal", use_container_width=True):
             go_to_landing()
-        if st.button("🖥️ Switch to Desktop App"):
+        if st.button("🖥️ Switch to Desktop App", use_container_width=True):
             go_to_app()
     
     # Read chat-full.html content
@@ -213,7 +255,7 @@ def render_web_chat():
 def render_desktop_app():
     # Sidebar navigation
     with st.sidebar:
-        if st.button("⬅️ Back to Portal"):
+        if st.button("🏠 Back to Portal", use_container_width=True):
             go_to_landing()
         st.divider()
 
@@ -222,66 +264,64 @@ def render_desktop_app():
     # Custom CSS for "Premium" feel
     st.markdown("""
     <style>
-        /* Main App Background */
+        /* Global Theme */
         .stApp {
-            background-color: #0e1117;
-            color: #fafafa;
+            background-color: #0f172a;
+            color: #f8fafc;
         }
         
-        /* Text Area Styling */
-        .stTextArea textarea {
-            background-color: #262730;
-            color: #ffffff;
-            border-radius: 12px;
-            border: 1px solid #444;
-            padding: 15px;
-            font-size: 16px;
-        }
-        .stTextArea textarea:focus {
-            border-color: #ff4b4b;
-            box-shadow: 0 0 10px rgba(255, 75, 75, 0.2);
+        /* Sidebar */
+        section[data-testid="stSidebar"] {
+            background-color: #1e293b;
+            border-right: 1px solid #334155;
         }
 
-        /* Button Styling */
+        /* Inputs */
+        .stTextInput input, .stSelectbox div[data-baseweb="select"], .stTextArea textarea {
+            background-color: #334155 !important;
+            color: white !important;
+            border: 1px solid #475569 !important;
+            border-radius: 8px !important;
+        }
+        
+        .stTextInput input:focus, .stTextArea textarea:focus {
+            border-color: #60a5fa !important;
+            box-shadow: 0 0 0 2px rgba(96, 165, 250, 0.2) !important;
+        }
+
+        /* Buttons */
         .stButton button {
-            background: linear-gradient(90deg, #ff4b4b 0%, #ff6b6b 100%);
+            background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
             color: white;
-            border-radius: 25px;
-            padding: 12px 28px;
-            font-weight: 600;
             border: none;
-            width: 100%;
-            transition: all 0.3s ease;
-            text-transform: uppercase;
-            letter-spacing: 1px;
+            border-radius: 8px;
+            padding: 0.6rem 1.2rem;
+            font-weight: 600;
+            transition: all 0.2s;
         }
         .stButton button:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(255, 75, 75, 0.4);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
         }
 
-        /* Provider Card Styling */
+        /* Cards & Containers */
         .provider-card {
-            background-color: #1e1e1e;
+            background-color: #1e293b;
             padding: 20px;
-            border-radius: 15px;
-            border: 1px solid #333;
+            border-radius: 12px;
+            border: 1px solid #334155;
             margin-bottom: 20px;
             height: 400px;
             overflow-y: auto;
-            transition: border-color 0.3s ease;
-        }
-        .provider-card:hover {
-            border-color: #555;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
         }
 
-        /* Final Answer Card Styling */
         .final-answer {
-            background: linear-gradient(145deg, #1a1c24, #2d2d2d);
-            padding: 35px;
-            border-radius: 20px;
-            border: 1px solid #444;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.4);
+            background: linear-gradient(145deg, #1e293b, #0f172a);
+            padding: 30px;
+            border-radius: 16px;
+            border: 1px solid #334155;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
             margin-bottom: 30px;
             position: relative;
             overflow: hidden;
@@ -292,14 +332,28 @@ def render_desktop_app():
             top: 0;
             left: 0;
             width: 100%;
-            height: 5px;
-            background: linear-gradient(90deg, #ff4b4b, #ff6b6b);
+            height: 4px;
+            background: linear-gradient(90deg, #3b82f6, #8b5cf6);
         }
 
-        /* Sidebar Headers */
-        .css-10trblm {
-            color: #ff4b4b;
-            font-weight: bold;
+        /* Tabs */
+        .stTabs [data-baseweb="tab-list"] {
+            gap: 8px;
+            background-color: transparent;
+        }
+        .stTabs [data-baseweb="tab"] {
+            height: 40px;
+            white-space: nowrap;
+            background-color: #1e293b;
+            border-radius: 6px;
+            color: #94a3b8;
+            border: 1px solid #334155;
+            padding: 0 16px;
+        }
+        .stTabs [aria-selected="true"] {
+            background-color: #3b82f6;
+            color: white;
+            border-color: #3b82f6;
         }
     </style>
     """, unsafe_allow_html=True)
